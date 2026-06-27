@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 import 'dotenv/config';
 
 // Import your table schemas here
-import { tasks } from './schema.js';
+import { cardDB, enemyMovesetDB, enemyStats, passivesDB, playerLoadout, playerStats, statusEffectDatabase, tasks, users } from './schema.js';
 
 // --- Seed data ---
 
@@ -26,13 +26,112 @@ const sampleTasks = [
   { title: 'Read a book', completed: true },
   { title: 'Go for a walk', completed: false },
 ];
+/** Sample users */
+const sampleUsers = [
+  { username: 'Zslayer30', password: 'Pass123' },
+  { username: 'SkyBlazer21', password: 'P4ssw0rd' },
+  { username: 'NightWalker75', password: 'DoNotPass' },
+];
+/** Player Stats for each user - Unchanging, but will be pulled into Active Battle Table for reference */
+const samplePlayerStats = [
+  { playerName: 'Zslayer30', health: 25, defense: 0, flying: false, speedy: false, passiveName: 'Aggressive' },
+  { playerName: 'SkyBlazer21', health: 25, defense: 0, flying: false, speedy: false, passiveName: 'Healthy' },
+  { playerName: 'NightWalker75', health: 25, defense: 0, flying: false, speedy: false, passiveName: 'Healthy' }
+]
+/** Enemy Database - Preprogrammed enemies that can be battled */
+const enemyDatabase = [
+  { enemyName: 'Goblin', health: 10, defense: 1, flying: false, speedy: false, passiveName: 'None' },
+  { enemyName: 'Skeleton Warrior', health: 15, defense: 0, flying: false, speedy: true, passiveName: 'None' },
+  { enemyName: 'Redback Dragon', health: 25, defense: 0, flying: true, speedy: false, passiveName: 'None' },
+  { enemyName: 'Gilded Assasin', health: 20, defense: 2, flying: false, speedy: false, passiveName: 'None' },
+  { enemyName: 'King Varion Shaw', health: 50, defense: 2, flying: false, speedy: false, passiveName: 'None' }
+]
+
+/** Card Database that holds the functions of each card */
+const cardDatabase = [
+  { cardName: 'Sword Slash', damage: 7, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardDesc: 'Slash at enemies with a sword! Deals 7 damage but cannot hit flying enemies' },
+  { cardName: 'Slingshot', damage: 5, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'None', cardDesc: 'Fire pellets at enemies using a slingshot! Deals 5 damage but cannot hurt enemies with defense' },
+  { cardName: 'Spear Stab', damage: 9, heal: 0, hitFlying: false, hitDefense: false, statusEffectInflicted: 'None', cardDesc: 'Stab enemies with a spear! Deals 9 damage but cannot hit flying enemies or enemies with defense' },
+  { cardName: 'Boulder hurl', damage: 3, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'Pierce', cardDesc: 'Hurl a small boulder at enemies! Deals 3 damage but can pierce defense!' },
+  { cardName: 'Healing Aura', damage: 0, heal: 5, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardDesc: 'Heal yourself for 5 health' },
+  { cardName: 'Brace', damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Invincible', cardDesc: 'Brace yourself for a massive attack! Become invulnerable to any incoming damage, but skip your next turn' },
+  { cardName: 'Defensive Stance', damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'DefenseUPLvl1', cardDesc: 'Take up a defensive stance to reduce damage! Grants 3 defense points for that turn' },
+  { cardName: 'Shield Dissolve', damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'DefenseDOWNLvl3', cardDesc: 'Cast a Shield Dissolving spell on enemies! Reduces their defense points by 3 for 3 turns' },
+  { cardName: 'Fine Feeling', damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Cleanse', cardDesc: 'Feel fine! Be immune to status effects cast by enemies for that turn' },
+  { cardName: 'Regenerating Aura', damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Regenerate', cardDesc: 'Use a spell to heal yourself over time! Heals 3 healtj points over 3 turns' }
+]
+
+/** Passive Database that holds passive stat buffs */
+const passiveDatabase = [
+  { passiveName: 'Aggressive', damage: 1, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, passiveDesc: 'Become stronger and fiercer! Gain 1 more damage on damaging moves, but lose 5 health points' },
+  { passiveName: 'Armoured', damage: 0, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 1, passiveDesc: 'Become tougher and rigid! Gain 1 defense point permanently, but lose 5 health points' },
+  { passiveName: 'Healthy', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 5, defense: 0, passiveDesc: 'Become bigger and better! Gain 5 extra health points' },
+  { passiveName: 'Rejuvenating', damage: 0, healthDebuff: 0, heal: 1, healthBuff: 0, defense: 0, passiveDesc: 'Become resilient and robust! Gain 1 health point every turn' },
+]
+
+/** Enemy Moveset Database - Actions that can be performed by enemies. Which moves belongs to which enemy is dictated inside the Enemy moveset sequencer */
+const enemyMovesDatabase = [
+  { enemyName: 'Goblin', moveName: 'Stab', damage: 2, heal: 0, hitDefense: true, statusEffectInflicted: 'None', turn_index: 0 },
+  { enemyName: 'Skeleton Warrior', moveName: 'Skeleton Slash', damage: 5, heal: 0, hitDefense: true, statusEffectInflicted: 'None', turn_index: 0 },
+  { enemyName: 'Skeleton Warrior', moveName: 'Shield Raise', damage: 0, heal: 0, hitDefense: true, statusEffectInflicted: 'DefenseUPLvl1', turn_index: 1 },
+  { enemyName: 'Redback Dragon', moveName: 'Fireball', damage: 3, heal: 0, hitDefense: false, statusEffectInflicted: 'Burn', turn_index: 0 },
+  { enemyName: 'Redback Dragon', moveName: 'Swoop', damage: 5, heal: 0, hitDefense: true, statusEffectInflicted: 'None', turn_index: 1 },
+  { enemyName: 'Redback Dragon', moveName: 'Healing Warmth', damage: 0, heal: 3, hitDefense: false, statusEffectInflicted: 'None', turn_index: 2 },
+  { enemyName: 'Gilded Assasin', moveName: 'Blood Blade charge up', damage: 0, heal: 0, hitDefense: true, statusEffectInflicted: "preTKO", turn_index: 0 },
+  { enemyName: 'Gilded Assasin', moveName: 'Lethal Stab', damage: 100, heal: 0, hitDefense: true, statusEffectInflicted: "None", turn_index: 1 },
+  { enemyName: 'Gilded Assasin', moveName: 'Knife Throw', damage: 7, heal: 0, hitDefense: false, statusEffectInflicted: "None", turn_index: 3 },
+  { enemyName: 'Gilded Assasin', moveName: 'Strike', damage: 5, heal: 0, hitDefense: true, statusEffectInflicted: "None", turn_index: 2 },
+  { enemyName: 'King Varion Shaw', moveName: 'Stunning Blow', damage: 3, heal: 0, hitDefense: true, statusEffectInflicted: "Stun", turn_index: 0 },
+  { enemyName: 'King Varion Shaw', moveName: 'Blood Stone charge up', damage: 0, heal: 0, hitDefense: true, statusEffectInflicted: "preTKO(K)", turn_index: 0 },
+  { enemyName: 'King Varion Shaw', moveName: 'the full wrath of the Blood Stone', damage: 500, heal: 0, hitDefense: true, statusEffectInflicted: "None", turn_index: 1 },
+  { enemyName: 'King Varion Shaw', moveName: 'Rejuvenate', damage: 0, heal: 3, hitDefense: true, statusEffectInflicted: "None", turn_index: 1 },
+  { enemyName: 'King Varion Shaw', moveName: 'Staff Swipe', damage: 4, heal: 0, hitDefense: true, statusEffectInflicted: "None", turn_index: 2 },
+  { enemyName: 'King Varion Shaw', moveName: 'Staff Strike', damage: 5, heal: 0, hitDefense: true, statusEffectInflicted: "None", turn_index: 2 },
+  { enemyName: 'King Varion Shaw', moveName: 'Blood Shot', damage: 7, heal: 0, hitDefense: false, statusEffectInflicted: "None", turn_index: 3 },
+  { enemyName: 'King Varion Shaw', moveName: 'Staff Blast', damage: 8, heal: 0, hitDefense: false, statusEffectInflicted: "None", turn_index: 3 },
+  { enemyName: 'King Varion Shaw', moveName: 'Stunning Curse', damage: 0, heal: 0, hitDefense: true, statusEffectInflicted: "Stun", turn_index: 4 },
+  { enemyName: 'King Varion Shaw', moveName: 'Charge Forward', damage: 5, heal: 0, hitDefense: true, statusEffectInflicted: "None", turn_index: 4 },
+]
+
+/** Player card loadout - Holds the current loadout of a player that can be used in battle. Can be changed using /user/loadout */
+const samplePlayerLoadout = [
+  { playerName: 'Zslayer30', cardName: 'Sword Slash' },
+  { playerName: 'Zslayer30', cardName: 'Shield Dissolve' },
+  { playerName: 'Zslayer30', cardName: 'Brace' },
+  { playerName: 'Zslayer30', cardName: 'Healing aura' },
+  { playerName: 'Zslayer30', cardName: 'Defensive Stance' }
+]
+
+/** Status database - known status effects and their stats/combat logic */
+const statusDatabase = [
+  { entityInflicted: 'None', statusName: 'DefenseUPLvl1', damage: 0, heal: 0, defenseUP: 3, defenseDOWN: 0, dynamicStatus: false, statusDuration: 1 },
+  { entityInflicted: 'None', statusName: 'Pierce', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, statusDuration: 1 },
+  { entityInflicted: 'None', statusName: 'Invincible', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, statusDuration: 2 },
+  { entityInflicted: 'None', statusName: 'Burn', damage: 2, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: false, statusDuration: 3 },
+  { entityInflicted: 'None', statusName: 'preTKO', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, statusDuration: 1 },
+  { entityInflicted: 'None', statusName: 'DefenseDOWNLvl3', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 3, dynamicStatus: false, statusDuration: 3 },
+  { entityInflicted: 'None', statusName: 'Stun', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, statusDuration: 2 },
+  { entityInflicted: 'None', statusName: 'preTKO(K)', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 3, dynamicStatus: true, statusDuration: 1 },
+  { entityInflicted: 'None', statusName: 'Cleanse', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, statusDuration: 1 },
+  { entityInflicted: 'None', statusName: 'Regenerate', damage: 0, heal: 3, defenseUP: 0, defenseDOWN: 0, dynamicStatus: false, statusDuration: 3 },
+]
 
 // --- Seed function ---
-
 /** Insert seed data into the database. */
 export const seed = async (db) => {
   await db.insert(tasks).values(sampleTasks);
   console.log(`  Inserted ${sampleTasks.length} tasks`);
+
+  await db.insert(users).values(sampleUsers);
+  console.log(`  Inserted ${sampleUsers.length} tasks`);
+
+  await db.insert(cardDB).values(cardDatabase);
+  await db.insert(playerStats).values(samplePlayerStats);
+  await db.insert(enemyStats).values(enemyDatabase);
+  await db.insert(enemyMovesetDB).values(enemyMovesDatabase);
+  await db.insert(playerLoadout).values(samplePlayerLoadout);
+  await db.insert(statusEffectDatabase).values(statusDatabase);
+  await db.insert(passivesDB).values(passiveDatabase);
 };
 
 // --- Database reset (no need to modify below) ---

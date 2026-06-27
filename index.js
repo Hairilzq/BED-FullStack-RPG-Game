@@ -6,6 +6,8 @@ import express from 'express';
 import cors from 'cors';
 import { setupSwagger } from './_extras/api-docs/swagger.js';
 import { errorHandler } from './src/utils/_errors.js';
+import { usersRoute } from './src/Router/usersRouter.js';
+import { battlesRoute } from './src/Router/battlesRouter.js';
 
 const app = express();
 
@@ -19,6 +21,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Add your routes here — before the error handler, like this:
 // app.use('/api/your-resource', yourRoutes);
+app.use('/users', usersRoute);
+app.use('/battle', battlesRoute);
 
 // Swagger API docs
 await setupSwagger(app);
