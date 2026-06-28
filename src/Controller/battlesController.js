@@ -339,7 +339,10 @@ export const fightBattle = async (req, res) => {
     let replyList = [];
     let Victor;
 
-    /** Combat logic and Math happens here - First, checks for status effects ACTIVE on the player/enemy and mutates stats/attacks/actions accordingly */
+    /** Combat logic and Math happens here - First, checks for status effects ACTIVE on the player/enemy and mutates stats/attacks/actions accordingly
+     * This is done by viewing the active statuses tracker and seeing if any statuses are live. Itll read what statuses are linked to what entity, and
+     * act accordingly.
+     */
     let currentStatusEffect;
     let currentStatusEffectDuration;
     let addStatusEffect;
@@ -349,7 +352,7 @@ export const fightBattle = async (req, res) => {
     player_defense = basePlayer_defense;
     enemy_defense = baseEnemy_defense;
 
-    let allEffects = await getStatusByEntity(player_Name);
+    let allEffects = await getStatusByEntity(player_Name); //Pulls active statuses on a player. Runs the logic
     if (allEffects[0]) {
       for (let index = 0; index < allEffects.length; index++) {
         const element = allEffects[index];
@@ -411,6 +414,9 @@ export const fightBattle = async (req, res) => {
           if (element.statusName === "Regenerate") {
             player_health += element.heal;
             replyList.push(player_Name + " healed " + element.heal + " from regeneration!");
+            if (player_health > basePlayer_health) {
+              player_health = basePlayer_health;
+            }
             let newDuration = element.statusDuration - 1;
             const statusUpdate = await updateStatuses(element.statusName, newDuration);
           }
@@ -463,7 +469,7 @@ export const fightBattle = async (req, res) => {
         }
       }
     }
-    allEffects = await getStatusByEntity(enemy_Name);
+    allEffects = await getStatusByEntity(enemy_Name); //Pulls active statuses on an enemy and runs the logic
     if (allEffects[0]) {
       for (let index = 0; index < allEffects.length; index++) {
         const element = allEffects[index];
@@ -484,7 +490,7 @@ export const fightBattle = async (req, res) => {
     /** Combat loop - Cycles through actionsTimeline and carries out the combat math and logic of respective actions. If an action causes an entity death, calls for match resolution*/
     for (const action of actionsTimeline) {
       let { action_name, action_damage, action_heal, action_hitFlying, action_hitDefense, action_statusEffectInflicted } = action.action_data;
-      if (action.action_entity === "Player" && !matchResolved) {
+      if (action.action_entity === "Player" && !matchResolved) { //Player's combat math and logic calculator
         if (action_statusEffectInflicted !== "None") {
           currentStatusEffect = await getStatusEffect(action_statusEffectInflicted);
           currentStatusEffect = currentStatusEffect[0];
@@ -575,7 +581,7 @@ export const fightBattle = async (req, res) => {
         } else if (playerPassive.heal !== 0) {
           replyList.push(player_Name + " healed 1 health from their passive");
         }
-      } else if (action.action_entity === "Enemy" && !matchResolved) { //Enemy's turn to attack
+      } else if (action.action_entity === "Enemy" && !matchResolved) { //Enemy's combat math and logic calculator
         if (action_statusEffectInflicted !== "None") {
           currentStatusEffect = await getStatusEffect(action_statusEffectInflicted);
           currentStatusEffect = currentStatusEffect[0];
