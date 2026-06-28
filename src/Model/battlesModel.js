@@ -10,6 +10,14 @@ export const getAllCards = async () => {
     .from(cardDB)
   return getRecords;
 }
+/** Get a specific card for showing */
+export const getCardById = async (id) => {
+  const getRecords = await db
+    .select()
+    .from(cardDB)
+    .where(eq(cardDB.id, id));
+  return getRecords;
+}
 /** Get all enemies for showing */
 export const getAllEnemies = async () => {
   const getRecords = await db
@@ -64,6 +72,16 @@ export const getPassive = async (passiveName) => {
     .where(eq(passivesDB.passiveName, passiveName));
   return getRecords;
 }
+/** Updates a passive in playerStats */
+export const changePassive = async (cleanRequestedUser, passiveName) => {
+  const updatedRecord = await db
+    .update(playerStats)
+    .set({
+      passiveName: passiveName
+    })
+    .where(eq(playerStats.playerName, cleanRequestedUser));
+  return updatedRecord;
+}
 /** Fetches a specified player loadout */
 export const getLoadout = async (player_Name) => {
   const getRecords = await db
@@ -113,6 +131,16 @@ export const createLoadout = async (cleanRequestedUser, card) => {
     })
     .returning();
   return newRecord;
+}
+/** Update playerStats name */
+export const updatePlayerStatsName = async (cleanRequestedUser, newUsername) => {
+  const updatedRecord = await db
+    .update(playerStats)
+    .set({
+      playerName: newUsername
+    })
+    .where(eq(playerStats.playerName, cleanRequestedUser));
+  return updatedRecord;
 }
 /** Fetches a status effect from the status effect database according to the target effect */
 export const getStatusEffect = async (statusName) => {

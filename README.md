@@ -7,13 +7,25 @@ This template now starts without any sample MVC feature routes. Only infrastruct
 - `GET /api/health`
 - `GET /api-docs`
 
+# Game Theme Description
+
+This is an RPG, turn-based, dynamic combat game with FOCUS on combat. You somehow travel to an alternate universe where all the lands are ruled by the Kingdom of Varion, under the mighty ruler Shaw Harion! Shaw holds the sacred weapon, the Blood Stone, that you suspect may take you back to your world! As such, you set out to end the reign of terror of King Varion Shaw, and claim the Blood Stone so that you may go home!
+
+(Because the game is focused on combat, there are no set levels for the player to do. However, they may fight progressively harder enemies till they reach the mighty King Varion Shaw!)
+
 ## Setup
 
+git clone "..." -> Clone the code repo by inserting the repo link in "..."
 ```bash
 npm install
 npm run db
 npm run dev
 ```
+'install' installs dependencies, 'run db' loads the database, and 'run dev' starts the server
+
+# Assumptions
+
+While the game has basic input validation guards, it is not made to be foolproof and hence also relies on the player's own descretion (e.g, certain moves like 'Brace' shouldnt be used twice, but the game allows it anyway). There is also no single 'play' route and that if a player wants to setup any battles, they need to know the correct steps to do so. This will be explained in the interview. The game is mostly focused on combat and does not take into account user convenience
 
 Open http://localhost:3000 after the server starts.
 

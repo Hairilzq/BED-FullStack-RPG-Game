@@ -8,14 +8,6 @@
 import { boolean } from 'drizzle-orm/mysql-core';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-/** Tasks table. */
-export const tasks = sqliteTable('tasks', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
-});
-
 /** Users table. */
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -42,7 +34,8 @@ export const enemyStats = sqliteTable('enemyStats', {
   defense: integer('defense').notNull(),
   flying: boolean('flying?').notNull(),
   speedy: boolean('speedy?').notNull(),
-  passiveName: text('passiveName').notNull()
+  passiveName: text('passiveName').notNull(),
+  enemyDesc: text('enemyDesc').notNull()
 })
 
 /** Card database - stores the stats and combat logic of cards */
