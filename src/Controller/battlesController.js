@@ -1,7 +1,7 @@
-import { is } from "drizzle-orm";
 import { addStatus, checkLoadout, createBattleEnemy, createBattlePlayer, deleteActiveBattleEnemy, deleteStatus, getActiveBattle, getActiveBattleEnemies, getCard, getEnemyMove, getEnemyStats, getLevelByUser, getLevelEnemies, getLoadout, getPassive, getPlayerStats, getStatusByEnemy, getStatusByEntity, getStatusEffect, resetActiveBattleEnemy, resetActiveBattlePlayer, resetStatusTracker, updateActiveBattleTableEnemy, updateActiveBattleTablePlayer, updateLevelProgress, updateStatuses } from "../Model/battlesModel.js";
 
 /** Function to create a new battle - Pulls the requested player and enemy stats from their respective databases, and places them into the active battle table. Essentially a POST function */
+// Deprecated route
 export const initiateBattle = async (req, res) => {
   try {
     let checkForBattle = await getActiveBattle();
@@ -79,89 +79,89 @@ export const initiateBattle = async (req, res) => {
 }
 /** Initiate levels for players to progress */
 export const initiateLevels = async (req, res) => {
-  //try {
-  let checkForBattle = await getActiveBattle();
-  checkForBattle = checkForBattle[0];
-  if (checkForBattle) {
-    return res.status(400).json({ "error": "A battle is already active and running!" })
-  }
-  const { playerName } = req.body;
-
-  //get player stats and load them into active battle table
-  let PlayerStatistics = await getPlayerStats(playerName);
-  PlayerStatistics = PlayerStatistics[0];
-  let playerPassive = await getPassive(PlayerStatistics.passiveName);
-  playerPassive = playerPassive[0];
-
-  const healthBuff = playerPassive.healthBuff;
-  const healthDebuff = playerPassive.healthDebuff;
-  const defenseBuff = playerPassive.defense;
-
-  const playerStatsPrint = { //for printing in terminal
-    "playerName": PlayerStatistics.playerName,
-    "health": PlayerStatistics.health + healthBuff - healthDebuff,
-    "defense": PlayerStatistics.defense + defenseBuff,
-    "agility": PlayerStatistics.agility,
-    "passiveName": PlayerStatistics.passiveName
-  }
-  // Push to activeBattleTablePlayer
-  let newBattle = await createBattlePlayer(
-    PlayerStatistics.playerName,
-    PlayerStatistics.health + healthBuff - healthDebuff,
-    PlayerStatistics.defense + defenseBuff,
-    PlayerStatistics.agility,
-    PlayerStatistics.passiveName,
-    false
-  );
-  // Fetch level ID the player is on
-  let getLevelID = await getLevelByUser(playerName);
-  getLevelID = getLevelID[0];
-  let currentLevel = getLevelID.levelProgress;
-
-  let getLevel = await getLevelEnemies(currentLevel);
-  getLevel = getLevel[0];
-  const enemyList = [getLevel.enemyName_1, getLevel.enemyName_2, getLevel.enemyName_3, getLevel.enemyName_4];
-  let enemyStatsPrint = [];
-
-  // Pushing Enemy(s) stats into activeBattleTableEnemy
-  for (let index = 0; index < enemyList.length; index++) {
-    if (enemyList[index]) {
-      let EnemyStatistics = await getEnemyStats(enemyList[index]);
-      EnemyStatistics = EnemyStatistics[0];
-
-      let newBattle = await createBattleEnemy(
-        index + 1,
-        EnemyStatistics.enemyName,
-        EnemyStatistics.health,
-        EnemyStatistics.defense,
-        EnemyStatistics.flying,
-        EnemyStatistics.speedy,
-        0
-      );
-      enemyStatsPrint.push({
-        "enemyName": EnemyStatistics.enemyName,
-        "health": EnemyStatistics.health,
-        "defense": EnemyStatistics.defense,
-        "flying?": EnemyStatistics.flying,
-        "speedy?": EnemyStatistics.speedy
-      });
+  try {
+    let checkForBattle = await getActiveBattle();
+    checkForBattle = checkForBattle[0];
+    if (checkForBattle) {
+      return res.status(400).json({ "error": "A battle is already active and running!" })
     }
-  }
-  let replyList = [];
-  const playerLoadout = await getLoadout(playerName);
-  replyList.push("Level " + getLevel.id + ": " + getLevel.levelName);
-  replyList.push("Battle successfully created. Use /battle/fight to fight!");
-  replyList.push("Here are your usable cards:")
-  replyList.push(playerLoadout);
-  replyList.push("Here are your stats:");
-  replyList.push(playerStatsPrint);
-  replyList.push("Here are the enemy stats:");
-  replyList.push(enemyStatsPrint);
+    const playerName = req.user.id;
 
-  return res.status(200).json(replyList);
-  //} catch (error) {
-  //return res.status(500).json({ "error": "Internal server error" });
-  //}
+    //get player stats and load them into active battle table
+    let PlayerStatistics = await getPlayerStats(playerName);
+    PlayerStatistics = PlayerStatistics[0];
+    let playerPassive = await getPassive(PlayerStatistics.passiveName);
+    playerPassive = playerPassive[0];
+
+    const healthBuff = playerPassive.healthBuff;
+    const healthDebuff = playerPassive.healthDebuff;
+    const defenseBuff = playerPassive.defense;
+
+    const playerStatsPrint = { //for printing in terminal
+      "playerName": PlayerStatistics.playerName,
+      "health": PlayerStatistics.health + healthBuff - healthDebuff,
+      "defense": PlayerStatistics.defense + defenseBuff,
+      "agility": PlayerStatistics.agility,
+      "passiveName": PlayerStatistics.passiveName
+    }
+    // Push to activeBattleTablePlayer
+    let newBattle = await createBattlePlayer(
+      PlayerStatistics.playerName,
+      PlayerStatistics.health + healthBuff - healthDebuff,
+      PlayerStatistics.defense + defenseBuff,
+      PlayerStatistics.agility,
+      PlayerStatistics.passiveName,
+      false
+    );
+    // Fetch level ID the player is on
+    let getLevelID = await getLevelByUser(playerName);
+    getLevelID = getLevelID[0];
+    let currentLevel = getLevelID.levelProgress;
+
+    let getLevel = await getLevelEnemies(currentLevel);
+    getLevel = getLevel[0];
+    const enemyList = [getLevel.enemyName_1, getLevel.enemyName_2, getLevel.enemyName_3, getLevel.enemyName_4];
+    let enemyStatsPrint = [];
+
+    // Pushing Enemy(s) stats into activeBattleTableEnemy
+    for (let index = 0; index < enemyList.length; index++) {
+      if (enemyList[index]) {
+        let EnemyStatistics = await getEnemyStats(enemyList[index]);
+        EnemyStatistics = EnemyStatistics[0];
+
+        let newBattle = await createBattleEnemy(
+          index + 1,
+          EnemyStatistics.enemyName,
+          EnemyStatistics.health,
+          EnemyStatistics.defense,
+          EnemyStatistics.flying,
+          EnemyStatistics.speedy,
+          0
+        );
+        enemyStatsPrint.push({
+          "enemyName": EnemyStatistics.enemyName,
+          "health": EnemyStatistics.health,
+          "defense": EnemyStatistics.defense,
+          "flying?": EnemyStatistics.flying,
+          "speedy?": EnemyStatistics.speedy
+        });
+      }
+    }
+    let replyList = [];
+    const playerLoadout = await getLoadout(playerName);
+    replyList.push("Level " + getLevel.id + ": " + getLevel.levelName);
+    replyList.push("Battle successfully created. Use /battle/fight to fight!");
+    replyList.push("Here are your usable cards:")
+    replyList.push(playerLoadout);
+    replyList.push("Here are your stats:");
+    replyList.push(playerStatsPrint);
+    replyList.push("Here are the enemy stats:");
+    replyList.push(enemyStatsPrint);
+
+    return res.status(200).json(replyList);
+  } catch (error) {
+    return res.status(500).json({ "error": "Internal server error" });
+  }
 }
 
 /** Function to reset active battles by deleting any data stored in the active battle table, and data stored in active statuses tracker. Essentially a DELETE function */

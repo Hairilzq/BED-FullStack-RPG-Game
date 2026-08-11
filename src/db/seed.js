@@ -21,9 +21,9 @@ import { cardDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerL
 // --- Seed data ---
 /** Sample users */
 const sampleUsers = [
-  { username: 'Zslayer30', password: 'Pass123', levelProgress: 1 },
-  { username: 'SkyBlazer21', password: 'P4ssw0rd', levelProgress: 1 },
-  { username: 'NightWalker75', password: 'DoNotPass', levelProgress: 1 }
+  { username: 'Zslayer30', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', levelProgress: 1 },
+  { username: 'SkyBlazer21', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', levelProgress: 1 },
+  { username: 'NightWalker75', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', levelProgress: 1 }
 ];
 /** Player Stats for each user - Unchanging, but will be pulled into Active Battle Table for reference */
 const samplePlayerStats = [

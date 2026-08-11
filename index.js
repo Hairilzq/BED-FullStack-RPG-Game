@@ -2,18 +2,21 @@
 // Look for the comment "Add your routes here" below.
 
 import 'dotenv/config';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
 import { setupSwagger } from './_extras/api-docs/swagger.js';
 import { errorHandler } from './src/utils/_errors.js';
 import { usersRoute } from './src/Router/usersRouter.js';
 import { battlesRoute } from './src/Router/battlesRouter.js';
+import { loginRoute } from './src/Router/loginRouter.js';
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.static('src/frontend'));
 
 // Routes
@@ -23,6 +26,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 // app.use('/api/your-resource', yourRoutes);
 app.use('/users', usersRoute);
 app.use('/battle', battlesRoute);
+app.use('/login', loginRoute);
 
 // Swagger API docs
 await setupSwagger(app);

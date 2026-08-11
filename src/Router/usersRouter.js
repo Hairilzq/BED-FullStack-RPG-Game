@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { showCardbyId, showCards, showEnemies, showPassives, updateLoadout, updateUser } from "../Controller/usersController.js";
+import { verifyToken } from "../Middleware/verifyToken.js";
 
 export const usersRoute = Router();
+
+// All routes to be protected by verifyToken
+usersRoute.use(verifyToken);
 
 /** Route to update username and password */
 usersRoute.put('/update', updateUser);

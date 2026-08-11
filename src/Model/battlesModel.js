@@ -1,7 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { activeBattleTableEnemy, activeBattleTablePlayer, activeStatusesTracker, cardDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerLoadout, playerStats, statusEffectDatabase, users } from "../db/schema.js";
 import { db } from "../db/connection.js";
-import { get } from "http";
 
 /** Get all cards for showing */
 export const getAllCards = async () => {
