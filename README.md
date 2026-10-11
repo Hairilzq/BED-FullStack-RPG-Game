@@ -1,5 +1,5 @@
+(Same READ.ME used for the school assignment, with some content added to update to the current context)
 # Student Assignment Template
-
 Express.js + libsql + Drizzle ORM starter for building your own API and frontend feature.
 
 This template now starts without any sample MVC feature routes. Only infrastructure endpoints are pre-wired:
@@ -8,13 +8,11 @@ This template now starts without any sample MVC feature routes. Only infrastruct
 - `GET /api-docs`
 
 # Game Theme Description
-
 This is an RPG, turn-based, dynamic combat game with level progression. You somehow travel to an alternate universe where all of the lands are ruled by the Kingdom of Varion, under the tyrannical ruler Shaw Harion! Shaw holds the sacred weapon, the Blood Stone, that you suspect may take you back to your home world! As such, you set out to end the reign of terror of King Varion Shaw, and claim the Blood Stone so that you may go home!
 
 Players can view game data through the 'Game Catalog' where they may read more about the cards, passives, enemies, lore, and levels available. Players can create their own customised deck of action cards and choice of passive based of the available selection of 13 cards and 6 passives through the 'Update Loadout'. Players can then start battles by selecting 'Battle', and progress through the 5 preset levels in the game where they fight progressively harder enemies up until the boss, King Varion Shaw (and company).
 
 ## Setup
-
 git clone "..." -> Clone the code repo by inserting the repo link in "..."
 
 Once done, there are two servers you need to setup. First, do 'cd backend' and type these into the terminal:
@@ -28,32 +26,7 @@ Second, do 'cd frontend' and type these into the terminal:
 npm install
 npm run dev
 ```
-Ensure that both servers are running. Ensure that there are no reference errors (this file is in another directory that this file needs). The expected file structure is:
-📁 CA1-HAIRILZQ/
-├── 📁 backend/
-│   ├── 📁 src/ + _extras/
-│   ├── 📄 .env
-│   ├── 📄 .gitignore
-│   ├── 📄 drizzle.config.js
-│   ├── 📄 index.js
-│   ├── 📄 local.db
-│   ├── 📄 package.json
-│   ├── 📄 package-lock.json
-│   └── 📄 vitest.config.js
-├── 📁 frontend/
-│   ├── 📁 public/
-│   ├── 📁 src/
-│   ├── 📄 .gitignore
-│   ├── 📄 index.html
-│   ├── 📄 jsconfig.json
-│   ├── 📄 package.json
-│   ├── 📄 package-lock.json
-│   ├── 📄 svelte.config.js
-│   └── 📄 vite.config.js
-└── 📄 README.md
-(Courtesy of Gemini)
-
-If any of the files are missing, the game may not start.
+Ensure that both servers are running. Ensure that there are no reference errors (this file is in another directory that this file needs). If any of the files are missing, the game may not start.
 
 Once done, to play the game, visit /http:localhost:5173/ on your browser (while both servers are running). Youll see the login page. There are 3 preset users, choose any from the database or just make your own at Signup. Creating a new user creates for you a template loadout that you may change later on
 
@@ -67,8 +40,8 @@ GameMenu:
 Note you must be logged in and have a valid JWT token (which lasts for an hour) to navigate the game smoothly. Failure to do so will return errors for all pages.
 
 View Game Description for what you can do in this game
-# Assumptions
 
+# Assumptions
 The game only supports one user at a time, and that user must have a valid token to properly navigate the game. Thanks to Svelte, there is no way for the user to enter the main game without a token (aka logging in), but if the token expires (after 1h) while the user is in the main game, this may cause issues (frontend returns error for every function the user tries). New users created at sign up presist even after the server stops but will be deleted when a database reset is done.
 
 The game has many edge cases interactions that may not crash the server but cause some 'illegal' interactions. Such interactions include using certain abilities twice when they are not supposed to and not selecting a target and hence missing their turn. These are not 'patched' because they are easily avoidable and the cost to foolproof these interactions are not worth it. If it doesn't deter gameplay, it can be ignored.
@@ -80,7 +53,6 @@ Lastly, deprecated routes have been removed, but their persisting model codes ma
 If the frontend console bugs you for some 'changes', ignore them. These are due to the way Gemini coded the frontend using some deprecated functions and such. The main function of the frontend still works.
 
 ## Build Your Feature
-
 1. Add tables in `src/db/schema.js`
 2. Add seed data in `src/db/seed.js`
 3. Create model files in `src/models/`
@@ -90,7 +62,6 @@ If the frontend console bugs you for some 'changes', ignore them. These are due 
 7. Build/update pages in `src/frontend/`
 
 ## Key Files
-
 | File | Purpose |
 |---|---|
 | `index.js` | App setup, middleware, route registration, global error handler |
@@ -110,3 +81,9 @@ If the frontend console bugs you for some 'changes', ignore them. These are due 
 | `npm run db` | Recreate DB and seed data |
 | `npm test` | Run test suite |
 | `npm run export` | Export project zip (without node_modules) |
+
+## Game Screenshots
+The game screenshots consist of the following interfaces:
+ - GameCatalog
+ - UpdateLoadout
+ - Battle
