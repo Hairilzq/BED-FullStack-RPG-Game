@@ -1,4 +1,10 @@
 (Same READ.ME used for the school assignment, with some content added to update to the current context)
+# Tech Stack
+* **Frontend:** Svelte, Vite, HTML5/CSS3
+* **Backend:** Node.js, Express.js
+* **Database & ORM:** SQLite / libSQL, Drizzle ORM
+* **Authentication & Security:** JWT (HTTP-only cookie auth), bcrypt password hashing
+
 # Student Assignment Template
 Express.js + libsql + Drizzle ORM starter for building your own API and frontend feature.
 
@@ -12,7 +18,24 @@ This is an RPG, turn-based, dynamic combat game with level progression. You some
 
 Players can view game data through the 'Game Catalog' where they may read more about the cards, passives, enemies, lore, and levels available. Players can create their own customised deck of action cards and choice of passive based of the available selection of 13 cards and 6 passives through the 'Update Loadout'. Players can then start battles by selecting 'Battle', and progress through the 5 preset levels in the game where they fight progressively harder enemies up until the boss, King Varion Shaw (and company).
 
-## Setup
+# Notable Game Mechanics & System Architecture
+
+* **Deterministic Action Timeline & Automated NPC Execution**  
+  Powered by a server-side execution pipeline that queries database-defined movesets and hydrates them into a turn-based timeline. NPC logic processes independently without relying on client-side state, delivering automated, turn-driven combat resolution.
+
+* **Multi-Entity State & Combat Lifecycle Management**  
+  Maintains concurrent state tracking across multi-target encounters (up to 4 active dynamic NPCs alongside the player). Manages real-time HP deltas, target selection validation, and automated entity pruning upon defeat.
+
+* **Entity-Bound Temporal Status Effect Engine**  
+  Features an isolated state-tracking framework for per-entity dynamic status effects (DoTs like Burn, crowd control like Stuns). Handles duration decay, turn-start tick evaluation, and state cleanup automatically when effect durations expire.
+
+* **Dynamic Relational Deck-Building & Profile Hydration**  
+  Supports unconstrained player card-and-passive combinations. Upon battle initialization, the backend dynamically fetches, validates, and hydrates user-specific loadout configurations from the database into the active combat context.
+
+* **Stateful Campaign Progression & Stage Provisioning**  
+  Tracks player campaign progression milestones on the backend. Automatically calculates, provisions, and loads the appropriate level state and enemy wave configuration upon battle start without manual stage selection.
+
+# Setup
 git clone "..." -> Clone the code repo by inserting the repo link in "..."
 
 Once done, there are two servers you need to setup. First, do 'cd backend' and type these into the terminal:
@@ -28,18 +51,18 @@ npm run dev
 ```
 Ensure that both servers are running. Ensure that there are no reference errors (this file is in another directory that this file needs). If any of the files are missing, the game may not start.
 
-Once done, to play the game, visit /http:localhost:5173/ on your browser (while both servers are running). Youll see the login page. There are 3 preset users, choose any from the database or just make your own at Signup. Creating a new user creates for you a template loadout that you may change later on
+Note that a JWT_SECRET variable is stored in a .env file (which is not in this repo).
+
+Once done, to play the game, visit //http:localhost:5173 on your browser (while both servers are running). Youll see the login page. There are 3 preset users, choose any from the database or just make your own at Signup. Creating a new user creates for you a template loadout that you may change later on
 
 Once you enter, you will see a navigation menu. Each menu visits its corresponding page:
-
-GameMenu:
  - GameCatalog
  - UpdateLoadout
  - Battle
 
 Note you must be logged in and have a valid JWT token (which lasts for an hour) to navigate the game smoothly. Failure to do so will return errors for all pages.
 
-View Game Description for what you can do in this game
+View Game Description for what you can do in this game.
 
 # Assumptions
 The game only supports one user at a time, and that user must have a valid token to properly navigate the game. Thanks to Svelte, there is no way for the user to enter the main game without a token (aka logging in), but if the token expires (after 1h) while the user is in the main game, this may cause issues (frontend returns error for every function the user tries). New users created at sign up presist even after the server stops but will be deleted when a database reset is done.
