@@ -18,8 +18,11 @@ coverage
 # Test coverage
 coverage
 
-# Generated API docs
-_extras/api-docs/swagger-output.json
-
 # Drizzle migrations
 drizzle
+
+# Environment secret files
+.env
+
+# Active database file
+local.db

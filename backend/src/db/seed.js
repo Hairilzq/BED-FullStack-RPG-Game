@@ -36,7 +36,7 @@ const enemyDatabase = [
   { enemyName: 'Goblin', health: 10, defense: 1, flying: false, speedy: false, enemyDesc: 'A pesky Goblin that is trying to steal your gear! Weak, but not to be underestimated!' },
   { enemyName: 'Goblin Brute', health: 10, defense: 3, flying: false, speedy: true, enemyDesc: 'The leader of the Goblin pack! Very durable, but incapable of fighting. Time your attacks wisely!' },
   { enemyName: 'Skeleton Warrior', health: 15, defense: 0, flying: false, speedy: true, enemyDesc: 'Former warrior now reincarnated as a Skeleton Warrior! Attacks before you, and can use a Shield!' },
-  { enemyName: 'Exalted Mage', health: 10, defense: 5, flying: false, speedy: false, enemyDesc: 'Freshly graduated from Varion School of Magic Arts, Exalted Mage is ready to assist his mates in battle! Provides healing to allies' },
+  { enemyName: 'Exalted Mage', health: 10, defense: 5, flying: false, speedy: true, enemyDesc: 'Freshly graduated from Varion School of Magic Arts, Exalted Mage is ready to assist his mates in battle! Provides healing to allies' },
   { enemyName: 'Redback Dragon', health: 25, defense: 0, flying: true, speedy: false, enemyDesc: 'The mighty air defense of Kingdom Varion, the Redback Dragon guards the kingdom! Flies and can Burn you if youre not careful!' },
   { enemyName: 'Gilded Assasin', health: 20, defense: 2, flying: false, speedy: false, enemyDesc: 'A Gilded Assasin sent by the King himself to deal with you! His weapon, the Blood Blade, holds a fraction of the Blood Stone power!' },
   { enemyName: 'King Varion Shaw', health: 50, defense: 2, flying: false, speedy: false, enemyDesc: 'The ruler himself, King Varion Shaw! Wields the lethal powers of the Blood Stone, and his Varion Staff of which holds magical powers!' }
@@ -62,7 +62,7 @@ const cardDatabase = [
 /** Passive Database that holds passive stat buffs */
 const passiveDatabase = [
   { passiveName: 'Aggressive', damage: 1, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, passiveDesc: 'Become stronger and fiercer! Gain 1 more damage on damaging moves, but lose 5 health points' },
-  { passiveName: 'Armoured', damage: 0, healthDebuff: 7, heal: 0, healthBuff: 0, defense: 1, agilityRegen: 0, passiveDesc: 'Become tougher and rigid! Gain 1 defense point permanently, but lose 7 health points' },
+  { passiveName: 'Armoured', damage: 0, healthDebuff: 10, heal: 0, healthBuff: 0, defense: 1, agilityRegen: 0, passiveDesc: 'Become tougher and rigid! Gain 1 defense point permanently, but lose 10 health points' },
   { passiveName: 'Healthy', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 10, defense: 0, agilityRegen: 0, passiveDesc: 'Become bigger and better! Gain 10 extra health points' },
   { passiveName: 'Rejuvenate', damage: 0, healthDebuff: 0, heal: 1, healthBuff: 0, defense: 0, agilityRegen: 0, passiveDesc: 'Become resilient and robust! Gain 1 health point every card you play' },
   { passiveName: 'Steadfast', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 5, passiveDesc: 'Become quick and agile! Gain 5 regen each turn' },
@@ -76,8 +76,8 @@ const enemyMovesDatabase = [
   { enemyName: 'Goblin Brute', moveName: 'Rest', damage: 0, heal: 0, hitDefense: false, dodgeable: false, statusEffectInflicted: 'Rest', turn_index: 1 },
   { enemyName: 'Skeleton Warrior', moveName: 'Skeleton Slash', damage: 5, heal: 0, hitDefense: true, dodgeable: true, statusEffectInflicted: 'None', turn_index: 0 },
   { enemyName: 'Skeleton Warrior', moveName: 'Shield Raise', damage: 0, heal: 0, hitDefense: true, dodgeable: false, statusEffectInflicted: 'DefenseUPLvl1', turn_index: 1 },
-  { enemyName: 'Exalted Mage', moveName: 'Mending Spell', damage: 0, heal: 0, hitDefense: true, dodgeable: false, statusEffectInflicted: 'HealAll', turn_index: 0 },
-  { enemyName: 'Exalted Mage', moveName: 'Cast Fire', damage: 1, heal: 0, hitDefense: false, dodgeable: true, statusEffectInflicted: 'Burn', turn_index: 1 },
+  { enemyName: 'Exalted Mage', moveName: 'Mending Spell', damage: 0, heal: 0, hitDefense: true, dodgeable: false, statusEffectInflicted: 'HealAll', turn_index: 1 },
+  { enemyName: 'Exalted Mage', moveName: 'Cast Fire', damage: 1, heal: 0, hitDefense: false, dodgeable: true, statusEffectInflicted: 'Burn', turn_index: 0 },
   { enemyName: 'Exalted Mage', moveName: 'Rest', damage: 0, heal: 0, hitDefense: true, dodgeable: false, statusEffectInflicted: 'Rest', turn_index: 2 },
   { enemyName: 'Redback Dragon', moveName: 'Fireball', damage: 3, heal: 0, hitDefense: false, dodgeable: true, statusEffectInflicted: 'Burn', turn_index: 0 },
   { enemyName: 'Redback Dragon', moveName: 'Swoop', damage: 5, heal: 0, hitDefense: true, dodgeable: true, statusEffectInflicted: 'None', turn_index: 1 },

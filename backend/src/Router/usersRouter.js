@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { showCards, showEnemies, showLevels, showPassives, updateLoadout } from "../Controller/usersController.js";
+import { showCards, showCurrentLevel, showEnemies, showLevels, showPassives, updateLoadout } from "../Controller/usersController.js";
 import { verifyToken } from "../Middleware/verifyToken.js";
 
 export const usersRoute = Router();
@@ -21,3 +21,6 @@ usersRoute.get('/showEnemies', showEnemies);
 
 /** Route to show all levels */
 usersRoute.get('/showLevels', showLevels);
+
+/** Route to show the authenticated player's current level */
+usersRoute.get('/currentLevel', showCurrentLevel);

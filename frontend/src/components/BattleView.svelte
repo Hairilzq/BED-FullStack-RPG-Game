@@ -1,5 +1,5 @@
 <script>
-  import { onMount, afterUpdate } from "svelte";
+  import { afterUpdate, onDestroy, onMount } from "svelte";
   export let activeUser;
   export let navigate;
   export let initialData = null;
@@ -7,7 +7,7 @@
   // -- Header & Level Info --
   let levelNumber = 1;
   let levelName = "Unknown Area";
-  let currentTurn = 1;
+  let currentTurn = 0;
 
   // -- Combat State --
   let battleLogs = ["Battle initiated! Prepare for combat."];
@@ -32,6 +32,17 @@
   let selectedTargets = [];
   let isSubmitting = false;
   let isBattleConcluded = false;
+  let isBattleWon = false;
+  let damagedEnemyIds = [];
+  let healedEnemyIds = [];
+  let statusAppliedEnemyIds = [];
+  let enemyHealthFeedback = {};
+  let playerTookDamage = false;
+  let playerStatusApplied = false;
+  let playerHealed = false;
+  let playerAgilityConsumed = false;
+  let playerHealthFeedback = "";
+  let feedbackTimeout;
 
   function normalizeEnemySlots(rawEnemyPairs) {
     const slots = [1, 2, 3, 4].map((pos) => ({
@@ -133,6 +144,125 @@
   }
   // -----------------------
 
+  function hasNewStatus(previousStatuses, nextStatuses) {
+    const previousCounts = new Map();
+    for (const status of previousStatuses) {
+      previousCounts.set(status, (previousCounts.get(status) || 0) + 1);
+    }
+
+    const nextCounts = new Map();
+    for (const status of nextStatuses) {
+      nextCounts.set(status, (nextCounts.get(status) || 0) + 1);
+    }
+
+    return [...nextCounts].some(
+      ([status, count]) => count > (previousCounts.get(status) || 0),
+    );
+  }
+
+  function clearEntityFeedback() {
+    if (feedbackTimeout) clearTimeout(feedbackTimeout);
+    damagedEnemyIds = [];
+    healedEnemyIds = [];
+    statusAppliedEnemyIds = [];
+    enemyHealthFeedback = {};
+    playerTookDamage = false;
+    playerStatusApplied = false;
+    playerHealed = false;
+    playerAgilityConsumed = false;
+    playerHealthFeedback = "";
+  }
+
+  function showEntityFeedback(
+    nextPlayer,
+    nextPlayerStatuses,
+    nextEnemies,
+    playerDodged,
+    turnLogs,
+  ) {
+    const playerName = nextPlayer.playerName || activeUser;
+    playerTookDamage =
+      nextPlayer.health < player.health ||
+      turnLogs.some(
+        (log) =>
+          log.startsWith(`${playerName} took `) ||
+          log.includes(` on ${playerName}! Damage dealt:`),
+      );
+    playerStatusApplied =
+      !playerTookDamage && hasNewStatus(playerStatuses, nextPlayerStatuses);
+    playerHealed =
+      !playerTookDamage &&
+      !playerStatusApplied &&
+      nextPlayer.health > player.health;
+    playerAgilityConsumed =
+      !playerTookDamage &&
+      !playerStatusApplied &&
+      !playerHealed &&
+      (nextPlayer.agility < player.agility || playerDodged);
+    playerHealthFeedback = playerTookDamage
+      ? "damage-text"
+      : playerHealed
+        ? "heal-text"
+        : "";
+
+    damagedEnemyIds = nextEnemies
+      .filter((nextEnemy) => {
+        const previousEnemy = enemies.find(
+          (enemy) => enemy.id === nextEnemy.id,
+        );
+        return (
+          (previousEnemy && nextEnemy.health < previousEnemy.health) ||
+          turnLogs.some(
+            (log) =>
+              log.startsWith(`${nextEnemy.enemyName} took `) ||
+              log.includes(` on ${nextEnemy.enemyName}! Damage dealt:`),
+          )
+        );
+      })
+      .map((enemy) => enemy.id);
+
+    healedEnemyIds = nextEnemies
+      .filter((nextEnemy) => {
+        const previousEnemy = enemies.find(
+          (enemy) => enemy.id === nextEnemy.id,
+        );
+        return previousEnemy && nextEnemy.health > previousEnemy.health;
+      })
+      .map((enemy) => enemy.id);
+
+    statusAppliedEnemyIds = nextEnemies
+      .filter((nextEnemy) => {
+        const previousEnemy = enemies.find(
+          (enemy) => enemy.id === nextEnemy.id,
+        );
+        return (
+          previousEnemy &&
+          !damagedEnemyIds.includes(nextEnemy.id) &&
+          hasNewStatus(previousEnemy.statuses || [], nextEnemy.statuses || [])
+        );
+      })
+      .map((enemy) => enemy.id);
+
+    enemyHealthFeedback = Object.fromEntries(
+      nextEnemies
+        .filter(
+          (enemy) =>
+            damagedEnemyIds.includes(enemy.id) ||
+            healedEnemyIds.includes(enemy.id),
+        )
+        .map((enemy) => [
+          enemy.id,
+          damagedEnemyIds.includes(enemy.id) ? "damage-text" : "heal-text",
+        ]),
+    );
+
+    feedbackTimeout = setTimeout(clearEntityFeedback, 700);
+  }
+
+  onDestroy(() => {
+    if (feedbackTimeout) clearTimeout(feedbackTimeout);
+  });
+
   async function fleeBattle() {
     try {
       await fetch("http://localhost:3000/battle/reset", {
@@ -152,8 +282,18 @@
     }
   }
 
+  async function handleBattleExit() {
+    if (isBattleWon) {
+      navigate("menu");
+      return;
+    }
+
+    await fleeBattle();
+  }
+
   async function submitTurn() {
-    if (selectedCards.length === 0 || isBattleConcluded) return;
+    if (selectedCards.length !== 2 || isBattleConcluded || isSubmitting) return;
+    clearEntityFeedback();
     isSubmitting = true;
 
     const payload = {};
@@ -170,19 +310,46 @@
         body: JSON.stringify(payload),
       });
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            `Failed to execute turn (${response.status})`,
+        );
+      }
+
+      const nextPlayer = data[2] || player;
+      const nextPlayerStatuses = Array.isArray(data[3])
+        ? data[3]
+        : playerStatuses;
+      const nextEnemies = Array.isArray(data[4])
+        ? normalizeEnemySlots(data[4])
+        : enemies;
+      const turnLogs = Array.isArray(data[0]) ? data[0] : [];
+      const playerDodged = turnLogs.some((log) => log.includes(" dodged "));
+      showEntityFeedback(
+        nextPlayer,
+        nextPlayerStatuses,
+        nextEnemies,
+        playerDodged,
+        turnLogs,
+      );
+
       currentTurn++;
       battleLogs.push(`--- Turn ${currentTurn} ---`);
 
-      if (data[0] && Array.isArray(data[0]))
-        battleLogs = [...battleLogs, ...data[0]];
+      if (turnLogs.length > 0) battleLogs = [...battleLogs, ...turnLogs];
       if (data[1] && Array.isArray(data[1]) && data[1].length > 0) {
         battleLogs = [...battleLogs, ...data[1]];
         isBattleConcluded = true;
+        isBattleWon = data[1].some((message) =>
+          message.startsWith("All enemies have been defeated!"),
+        );
       }
       if (data[2]) player = data[2];
       if (data[3] && Array.isArray(data[3])) playerStatuses = data[3];
-      if (data[4] && Array.isArray(data[4]))
-        enemies = normalizeEnemySlots(data[4]);
+      if (Array.isArray(data[4])) enemies = nextEnemies;
 
       selectedCards = [];
       selectedTargets = [];
@@ -197,73 +364,111 @@
 <div class="battle-wrapper">
   <!-- Top Header -->
   <div class="header">
-    <button class="flee-btn" on:click={fleeBattle}>🏳️ Flee</button>
+    <button class="flee-btn" on:click={handleBattleExit}>
+      {isBattleWon ? "Continue" : "🏳️ Flee"}
+    </button>
     <h2>Level {levelNumber}: {levelName}</h2>
     <div class="passive-badge">Passive: {activePassive}</div>
   </div>
 
-  <!-- Battle Log -->
-  <div class="battle-log" bind:this={logContainer}>
-    {#each battleLogs as log}
-      <div class="log-entry">⚔️ {log}</div>
-    {/each}
-  </div>
-
-  <!-- Middle Arena -->
-  <div class="arena">
-    <div class="enemies-side">
-      {#each enemies as enemy}
-        {@const tCount = getTargetCount(enemy.id)}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <div
-          class="entity-card enemy {enemy.isDead ? 'dead' : ''} {tCount > 0
-            ? 'targeted'
-            : ''}"
-          on:click={() => addTarget(enemy.id)}
-          title={enemy.statuses?.length > 0
-            ? `Active Statuses: ${enemy.statuses.join(", ")}`
-            : "No active statuses"}
-        >
-          <div class="pos-badge">Pos {enemy.id}</div>
-          {#if tCount > 0}
-            <div class="target-badge">🎯 x{tCount}</div>
-          {/if}
-
-          <h3>{enemy.enemyName}</h3>
-
-          {#if enemy.isDead}
-            <div class="fainted-label">💀 FAINTED</div>
-          {:else}
-            <div class="stats">
-              <span class="hp">❤️ {enemy.health}</span>
-              <span class="def">🛡️ {enemy.defense || 0}</span>
-            </div>
-            <div class="traits">
-              {#if enemy["speedy?"]}<span class="trait-tag">⚡ Speedy</span
-                >{/if}
-              {#if enemy["flying?"]}<span class="trait-tag">🕊️ Flying</span
-                >{/if}
-              {#each enemy.statuses || [] as status}
-                <span class="status-tag">✨ {status}</span>
-              {/each}
-            </div>
-          {/if}
-        </div>
+  <div class="battle-layout">
+    <div class="battle-log" bind:this={logContainer}>
+      {#each battleLogs as log}
+        <div class="log-entry">⚔️ {log}</div>
       {/each}
+    </div>
+
+    <div class="center-column">
+      <div class="enemies-side">
+        {#each enemies as enemy}
+          {@const tCount = getTargetCount(enemy.id)}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div
+            class="entity-card enemy {enemy.isDead ? 'dead' : ''} {tCount > 0
+              ? 'targeted'
+              : ''} {damagedEnemyIds.includes(enemy.id)
+              ? 'damage-feedback'
+              : statusAppliedEnemyIds.includes(enemy.id)
+                ? 'status-feedback'
+                : healedEnemyIds.includes(enemy.id)
+                  ? 'healing-feedback'
+                : ''}"
+            on:click={() => addTarget(enemy.id)}
+            title={enemy.statuses?.length > 0
+              ? `Active Statuses: ${enemy.statuses.join(", ")}`
+              : "No active statuses"}
+          >
+            <div class="pos-badge">Pos {enemy.id}</div>
+            {#if tCount > 0}
+              <div class="target-badge">🎯 x{tCount}</div>
+            {/if}
+
+            <h3>{enemy.enemyName}</h3>
+
+            {#if enemy.isDead}
+              <div class="fainted-label">💀 FAINTED</div>
+            {:else}
+              <div class="stats">
+                <span class="hp {enemyHealthFeedback[enemy.id] || ''}">
+                  ❤️ {enemy.health}
+                </span>
+                <span class="def">🛡️ {enemy.defense || 0}</span>
+              </div>
+              <div class="traits">
+                {#if enemy["speedy?"]}
+                  <span class="trait-tag">⚡ Speedy</span>
+                {/if}
+                {#if enemy["flying?"]}
+                  <span class="trait-tag">🕊️ Flying</span>
+                {/if}
+                {#each enemy.statuses || [] as status}
+                  <span class="status-tag">✨ {status}</span>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+
+      <div class="hand">
+        {#each hand as card}
+          {@const count = getCardCount(card.cardName)}
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div
+            class="action-card {count > 0 ? 'selected-action' : ''}"
+            on:click={() => addCard(card.cardName)}
+          >
+            <span>{card.cardName}</span>
+            {#if count > 0}
+              <span class="count-badge">x{count}</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
     </div>
 
     <div class="player-side">
       <div
-        class="entity-card player-card"
+        class="entity-card player-card {playerTookDamage
+          ? 'damage-feedback'
+          : playerStatusApplied
+            ? 'status-feedback'
+            : playerHealed
+              ? 'healing-feedback'
+              : playerAgilityConsumed
+                ? 'agility-feedback'
+              : ''}"
         title={playerStatuses.length > 0
           ? `Active Statuses: ${playerStatuses.join(", ")}`
           : "No active statuses"}
       >
         <h3>{player.playerName || activeUser}</h3>
         <div class="stats large-stats">
-          <span class="hp">❤️ {player.health}</span>
+          <span class="hp {playerHealthFeedback}">❤️ {player.health}</span>
           <span class="def">🛡️ {player.defense || 0}</span>
-          <span class="agi">👟 {player.agility || 0}</span>
+          <span class="agi {playerAgilityConsumed ? 'agility-text' : ''}">
+            👟 {player.agility || 0}
+          </span>
         </div>
         {#if playerStatuses.length > 0}
           <div class="traits">
@@ -274,78 +479,62 @@
         {/if}
       </div>
     </div>
-  </div>
 
-  <!-- Bottom Hand & Action Controls -->
-  <div class="controls-area">
-    <div class="hand">
-      {#each hand as card}
-        {@const count = getCardCount(card.cardName)}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <div
-          class="action-card {count > 0 ? 'selected-action' : ''}"
-          on:click={() => addCard(card.cardName)}
+    <div class="controls-area">
+      <div class="action-panel">
+        <div class="queue-board">
+          <div class="queue-row">
+            <span class="queue-label">Cards ({selectedCards.length}/2):</span>
+            <div class="queue-slots">
+              {#each Array(2) as _, i}
+                {#if selectedCards[i]}
+                  <!-- svelte-ignore a11y-click-events-have-key-events -->
+                  <div class="queue-item filled" on:click={() => removeCard(i)}>
+                    {selectedCards[i]} <span class="remove-x">✖</span>
+                  </div>
+                {:else}
+                  <div class="queue-item empty">Empty</div>
+                {/if}
+              {/each}
+            </div>
+          </div>
+          <div class="queue-row">
+            <span class="queue-label">Targets:</span>
+            <div class="queue-slots">
+              {#each Array(2) as _, i}
+                {#if selectedTargets[i]}
+                  <!-- svelte-ignore a11y-click-events-have-key-events -->
+                  <div
+                    class="queue-item filled target-item"
+                    on:click={() => removeTarget(i)}
+                  >
+                    {getTargetLabel(selectedTargets[i])}
+                    <span class="remove-x">✖</span>
+                  </div>
+                {:else}
+                  <div class="queue-item empty">Empty</div>
+                {/if}
+              {/each}
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="submit-turn-btn"
+          on:click={submitTurn}
+          disabled={isSubmitting ||
+            selectedCards.length !== 2 ||
+            isBattleConcluded}
         >
-          <span>{card.cardName}</span>
-          {#if count > 0}
-            <span class="count-badge">x{count}</span>
-          {/if}
-        </div>
-      {/each}
-    </div>
-
-    <div class="action-panel">
-      <!-- THE NEW PROPOSED PAYLOAD BOARD -->
-      <div class="queue-board">
-        <div class="queue-row">
-          <span class="queue-label">Cards:</span>
-          <div class="queue-slots">
-            {#each Array(2) as _, i}
-              {#if selectedCards[i]}
-                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                <div class="queue-item filled" on:click={() => removeCard(i)}>
-                  {selectedCards[i]} <span class="remove-x">✖</span>
-                </div>
-              {:else}
-                <div class="queue-item empty">Empty</div>
-              {/if}
-            {/each}
-          </div>
-        </div>
-        <div class="queue-row">
-          <span class="queue-label">Targets:</span>
-          <div class="queue-slots">
-            {#each Array(2) as _, i}
-              {#if selectedTargets[i]}
-                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                <div
-                  class="queue-item filled target-item"
-                  on:click={() => removeTarget(i)}
-                >
-                  {getTargetLabel(selectedTargets[i])}
-                  <span class="remove-x">✖</span>
-                </div>
-              {:else}
-                <div class="queue-item empty">Empty</div>
-              {/if}
-            {/each}
-          </div>
-        </div>
+          {isBattleConcluded
+            ? "Battle Ended"
+            : isSubmitting
+              ? "Executing..."
+              : selectedCards.length !== 2
+                ? "Select 2 Cards"
+                : "🔥 Execute Turn"}
+        </button>
       </div>
-
-      <button
-        class="submit-turn-btn"
-        on:click={submitTurn}
-        disabled={isSubmitting ||
-          selectedCards.length === 0 ||
-          isBattleConcluded}
-      >
-        {isBattleConcluded
-          ? "Battle Ended"
-          : isSubmitting
-            ? "Executing..."
-            : "🔥 Execute Turn"}
-      </button>
     </div>
   </div>
 </div>
@@ -354,14 +543,13 @@
   .battle-wrapper {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    max-height: 100vh;
+    height: calc(100vh - 40px);
     padding: 15px;
     max-width: 1200px;
     margin: 0 auto;
     gap: 12px;
     box-sizing: border-box;
-    overflow: hidden;
+    min-height: 0;
   }
   .header {
     display: flex;
@@ -372,7 +560,7 @@
   .header h2 {
     color: #d45c2a;
     margin: 0;
-    font-size: 20px;
+    font-size: 28px;
   }
   .flee-btn {
     background: #3a3a48;
@@ -393,17 +581,18 @@
   }
 
   .battle-log {
+    grid-area: log;
     background: #1e1e24;
     border: 2px solid #3a3a48;
-    height: 120px;
-    max-height: 120px;
     border-radius: 8px;
     padding: 12px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    flex-shrink: 0;
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
   }
   .log-entry {
     font-family: monospace;
@@ -411,26 +600,42 @@
     color: #e0e0e0;
   }
 
-  .arena {
-    display: flex;
-    flex: 1;
-    gap: 15px;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-  .enemies-side {
-    flex: 2;
+  .battle-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-auto-rows: minmax(110px, auto);
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(0, 2.2fr) minmax(
+        190px,
+        0.9fr
+      );
+    grid-template-rows: minmax(0, 1fr) 128px;
+    grid-template-areas:
+      "log center player"
+      "log controls controls";
     gap: 12px;
   }
-  .player-side {
-    flex: 1;
+  .center-column {
+    grid-area: center;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+  }
+  .enemies-side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    min-height: 0;
+  }
+  .player-side {
+    grid-area: player;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    min-width: 0;
+    min-height: 0;
   }
 
   .entity-card {
@@ -444,7 +649,7 @@
   }
   .enemy {
     cursor: pointer;
-    min-height: 100px;
+    min-height: 0;
   }
   .enemy:hover:not(.dead) {
     border-color: #555;
@@ -541,30 +746,41 @@
   .player-card {
     border: 2px solid #4da8da;
     background: rgba(77, 168, 218, 0.1);
-    width: 90%;
-    height: 85%;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    box-sizing: border-box;
   }
 
-  /* Expanded bottom area to fit Queue Board */
   .controls-area {
+    grid-area: controls;
     display: flex;
-    gap: 15px;
     align-items: stretch;
-    height: 160px;
-    flex-shrink: 0;
+    min-width: 0;
+    min-height: 0;
   }
   .hand {
-    flex: 3;
     display: flex;
     gap: 8px;
     align-items: stretch;
+    flex: 0 0 120px;
+    min-height: 0;
+  }
+  .action-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 0.35fr);
+    align-items: stretch;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
   }
 
   .action-card {
     flex: 1;
+    min-width: 0;
     background: #3a3a48;
     border-radius: 8px;
     display: flex;
@@ -602,15 +818,6 @@
     border-radius: 10px;
   }
 
-  .action-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    justify-content: space-between;
-  }
-
-  /* Queue Board Styling */
   .queue-board {
     background: #1a1a22;
     border: 1px dashed #4da8da;
@@ -619,7 +826,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    flex: 1;
     justify-content: center;
   }
   .queue-row {
@@ -692,7 +898,143 @@
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
-    flex-shrink: 0;
+    min-width: 0;
+  }
+  .damage-feedback {
+    animation: damage-feedback 650ms ease-out;
+  }
+  .status-feedback {
+    animation: status-feedback 650ms ease-out;
+  }
+  .healing-feedback {
+    animation: healing-feedback 650ms ease-out;
+    z-index: 1;
+  }
+  .agility-feedback {
+    animation: agility-feedback 650ms ease-out;
+  }
+  .damage-text {
+    animation: damage-text 650ms ease-out;
+  }
+  .heal-text {
+    animation: heal-text 650ms ease-out;
+  }
+  .agility-text {
+    animation: agility-text 650ms ease-out;
+  }
+  @keyframes damage-feedback {
+    0% {
+      transform: translateX(0);
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(255, 55, 55, 0);
+    }
+    20% {
+      transform: translateX(-4px);
+      box-shadow: 0 0 20px rgba(255, 55, 55, 0.8);
+    }
+    40% {
+      transform: translateX(4px);
+      box-shadow: 0 0 18px rgba(255, 55, 55, 0.65);
+    }
+    60% {
+      transform: translateX(-2px);
+      box-shadow: 0 0 12px rgba(255, 55, 55, 0.4);
+    }
+    100% {
+      transform: translateX(0);
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(255, 55, 55, 0);
+    }
+  }
+  @keyframes status-feedback {
+    0% {
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(77, 168, 218, 0);
+    }
+    35% {
+      box-shadow: 0 0 22px rgba(77, 168, 218, 0.85);
+    }
+    100% {
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(77, 168, 218, 0);
+    }
+  }
+  @keyframes agility-feedback {
+    0% {
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(255, 220, 70, 0);
+    }
+    35% {
+      box-shadow: 0 0 22px rgba(255, 220, 70, 0.85);
+    }
+    100% {
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(255, 220, 70, 0);
+    }
+  }
+  @keyframes healing-feedback {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 0 rgba(70, 220, 120, 0);
+    }
+    35% {
+      transform: scale(1.035);
+      box-shadow: 0 0 24px rgba(70, 220, 120, 0.85);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 0 rgba(70, 220, 120, 0);
+    }
+  }
+  @keyframes damage-text {
+    0%,
+    100% {
+      color: inherit;
+      text-shadow: none;
+    }
+    35% {
+      color: #ff5555;
+      text-shadow: 0 0 8px rgba(255, 55, 55, 0.8);
+    }
+  }
+  @keyframes heal-text {
+    0%,
+    100% {
+      color: inherit;
+      text-shadow: none;
+    }
+    35% {
+      color: #54e783;
+      text-shadow: 0 0 8px rgba(70, 220, 120, 0.8);
+    }
+  }
+  @keyframes agility-text {
+    0%,
+    100% {
+      color: inherit;
+      text-shadow: none;
+    }
+    35% {
+      color: #ffdf54;
+      text-shadow: 0 0 8px rgba(255, 220, 70, 0.8);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .damage-feedback,
+    .status-feedback,
+    .healing-feedback,
+    .agility-feedback,
+    .damage-text,
+    .heal-text,
+    .agility-text {
+      animation: none;
+    }
   }
   .submit-turn-btn:hover:not(:disabled) {
     background: #e86a35;

@@ -6,7 +6,6 @@
  */
 
 import { boolean } from 'drizzle-orm/mysql-core';
-import { intersect } from 'drizzle-orm/pg-core';
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 /** Users table. */

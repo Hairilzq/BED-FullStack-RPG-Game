@@ -1,10 +1,38 @@
 <script>
+  import { onMount } from "svelte";
+
   // Props passed down from App.svelte
   export let activeUser = "Player";
   export let navigate;
 
+  let currentLevelName = "";
+  let isLoadingLevel = true;
+  let levelErrorMessage = "";
   let isStartingBattle = false;
   let errorMessage = "";
+
+  onMount(async () => {
+    try {
+      const response = await fetch("http://localhost:3000/users/currentLevel", {
+        credentials: "include",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load current level");
+      }
+
+      if (typeof data.levelName !== "string" || !data.levelName) {
+        throw new Error("Current level could not be found");
+      }
+
+      currentLevelName = data.levelName;
+    } catch (err) {
+      levelErrorMessage = err.message;
+    } finally {
+      isLoadingLevel = false;
+    }
+  });
 
   // Function to initialize the battle on the server before switching views
   async function startBattle() {
@@ -41,6 +69,18 @@
   <div class="menu-card">
     <h1>Welcome, <span class="highlight">{activeUser}</span>!</h1>
     <p class="subtitle">What would you like to do?</p>
+
+    <p class="level-progress">
+      Current Level:
+      <strong>
+        {isLoadingLevel
+          ? "Loading..."
+          : currentLevelName || "Unavailable"}
+      </strong>
+    </p>
+    {#if levelErrorMessage}
+      <div class="error-banner">{levelErrorMessage}</div>
+    {/if}
 
     {#if errorMessage}
       <div class="error-banner">{errorMessage}</div>
@@ -98,7 +138,17 @@
 
   .subtitle {
     color: #a0a0b0;
-    margin-bottom: 40px;
+    margin-bottom: 12px;
+  }
+
+  .level-progress {
+    color: #a0a0b0;
+    margin: 0 0 32px;
+    font-size: 16px;
+  }
+
+  .level-progress strong {
+    color: #d45c2a;
   }
 
   .button-group {

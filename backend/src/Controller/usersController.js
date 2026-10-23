@@ -1,6 +1,19 @@
 import { changePassive, clearLoadout, createLoadout, getActiveBattle, getAllCards, getAllEnemies, getAllLevels, getAllPassives, getCard, getCardById, getLoadout, getPassive, updateLoadoutName, updatePlayerStatsName } from "../Model/battlesModel.js";
-import { getUser, updateUserPassword } from "../Model/usersModel.js";
+import { getCurrentLevelByUsername, getUser, updateUserPassword } from "../Model/usersModel.js";
 import bcrypt from 'bcrypt';
+
+/** Get the authenticated player's current level name */
+export const showCurrentLevel = async (req, res) => {
+  try {
+    const currentLevel = await getCurrentLevelByUsername(req.user.id);
+    if (!currentLevel) {
+      return res.status(404).json({ error: "Current level could not be found" });
+    }
+    return res.status(200).json(currentLevel);
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
 
 /** Get all cards */
 export const showCards = async (req, res) => {
