@@ -1,6 +1,9 @@
 # Changelog
 All version updates and their associated changes are listed here (Versions are usually done per commit). Arranged from latest to oldest updates. Changes are either listed as `Added`, `Removed`, `Fixed`, or `Changed`. Versions are listed in this format x.y.z, where x is for major game changes/overhauls, y is for minor version upgrades and z is for small fixes/tweaks to a version.
 
+## Version 1.1.1 - .gitignore Fix
+- `Fixed`: Fixed `.env` and `local.db` from being committed despite being inside .gitignore
+
 ## Version 1.1 - Project Cleanup
 ### Project Structure
 - `Removed`: Non-essential template files from the previous student template like Swagger, devcontainer and vitest have been removed for a cleaner, lighter commit
