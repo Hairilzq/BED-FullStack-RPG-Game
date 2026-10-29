@@ -107,7 +107,6 @@ export const updateLevelProgress = async (username, levelID) => {
     .where(eq(users.username, username));
   return updateRecord;
 }
-
 /** Updates a passive in playerStats */
 export const changePassive = async (cleanRequestedUser, passiveName) => {
   const updatedRecord = await db

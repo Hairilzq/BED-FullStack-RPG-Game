@@ -112,14 +112,13 @@ export const resetBattle = async (req, res) => {
 
 /** Main combat logic and math calculator here. Essentially a glorified UPDATE function */
 export const fightBattle = async (req, res) => {
-  //try {
   /** Accept player input of 2 chosen cards and up to 2 targets. Validates that the cards are real based on what is stored in the database */
   const { card_1, card_2 } = req.body;
   let { target_1, target_2 } = req.body;
   if (card_1 === undefined || card_2 === undefined || card_1.trim().length === 0 || card_2.trim().length === 0 || typeof (card_1) !== "string" || typeof (card_2) !== "string") {
     return res.status(400).json({ "error": "card_1 and card_2 names must be provided" });
   }
-  // Auto resolve if targets are not specified (experimental)
+  // Auto resolve if targets are not specified. Targets the first alive enemy, is resolved to another enemy later on if the first target is dead.
   if (!target_1) {
     target_1 = 1;
   }
@@ -212,7 +211,8 @@ export const fightBattle = async (req, res) => {
      fetches their moves based on turn index (done by Model) and pushes it into actionsTimeline. Moves
      now have priority on them which will allow some moves to go before others (like enemies with speedy)
   */
-  const getEnemies = await getActiveBattleEnemies();
+  // Fetch all active enemies in the battle ONCE; the server mutates this local copy during battle and writes it to the db once a battle turn is finished.
+  let getEnemies = await getActiveBattleEnemies();
   for (let index = 0; index < getEnemies.length; index++) {
     const currentEnemy = getEnemies[index];
     const enemyIndex = currentEnemy.enemy_Id;
@@ -278,6 +278,7 @@ export const fightBattle = async (req, res) => {
   let player_stunned = false;
   let player_invulnerable = false;
   let player_lifesteal = false;
+  let player_agilityUP = false;
   let enemy_healAll = false;
   // Variables to hold message logs
   let replyList = [];
@@ -293,7 +294,8 @@ export const fightBattle = async (req, res) => {
   // For agilityUp
   let agilityUp = 20;
 
-  let allEffects = await getStatusByEntity(player_Name); //Pulls active statuses on a player. Runs the logic
+  //Pulls active statuses on a player. Runs the logic
+  let allEffects = await getStatusByEntity(player_Name);
   for (let index = 0; index < allEffects.length; index++) {
     const element = allEffects[index];
     if (element.statusDuration === 0) {
@@ -335,10 +337,9 @@ export const fightBattle = async (req, res) => {
   }
   // Iterate through each enemy and mutate stats accordingly
   for (let index = 0; index < getEnemies.length; index++) {
-    const currentEnemy = getEnemies[index];
-    allEffects = await getStatusByEnemy(currentEnemy.enemy_Id);
+    allEffects = await getStatusByEnemy(getEnemies[index].enemy_Id);
 
-    let getBaseEnemyStats = await getEnemyStats(currentEnemy.enemyName);
+    let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
     let baseEnemyStats = getBaseEnemyStats[0];
     let baseEnemy_health = baseEnemyStats.health;
     let baseEnemy_defense = baseEnemyStats.defense;
@@ -348,37 +349,32 @@ export const fightBattle = async (req, res) => {
       if (element.statusDuration === 0) {
         const removeStatusEffect = await deleteStatus(element.id);
         // Update here so that combat loop fetches a fresh record
-        let updateEnemy = await updateActiveBattleTableEnemy(
-          currentEnemy.enemy_Id,
-          currentEnemy.health,
-          baseEnemy_defense
-        )
+        let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === getEnemies[index].enemy_Id);
+        updateEnemy.health = getEnemies[index].health;
+        updateEnemy.defense = baseEnemy_defense;
       } else {
         if (element.statusName === "DefenseDOWNLvl3") {
-          currentEnemy.defense -= element.defenseDOWN;
-          if (currentEnemy.defense < 0) {
-            currentEnemy.defense = 0;
+          getEnemies[index].defense -= element.defenseDOWN;
+          if (getEnemies[index].defense < 0) {
+            getEnemies[index].defense = 0;
           }
           let newDuration = element.statusDuration - 1;
           const statusUpdate = await updateStatuses(element.id, newDuration);
         }
         // Update here so that combat loop fetches a fresh record
-        let updateEnemy = await updateActiveBattleTableEnemy(
-          currentEnemy.enemy_Id,
-          currentEnemy.health,
-          currentEnemy.defense
-        )
+        let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === getEnemies[index].enemy_Id);
+        updateEnemy.health = getEnemies[index].health;
+        updateEnemy.defense = getEnemies[index].defense;
       }
     }
   }
   /** Combat loop - Cycles through actionsTimeline and carries out the combat math and logic of respective actions. If an action causes an entity death, calls for match resolution*/
   for (const action of actionsTimeline) {
-    const aliveEnemies = await getActiveBattleEnemies();
     const playerTargetEnemy = action.targetEntity;
     const enemyPosition = action.entityId;
     // Gets the currentEnemy owning the move in actionsTimeline (if any) or the targetted enemy of the player (if any)
-    let currentEnemy = aliveEnemies.find(enemy => enemy.enemy_Id === enemyPosition);
-    let targetEnemy = aliveEnemies.find(enemy => enemy.enemy_Id === playerTargetEnemy);
+    let currentEnemy = getEnemies.find(enemy => enemy.enemy_Id === enemyPosition);
+    let targetEnemy = getEnemies.find(enemy => enemy.enemy_Id === playerTargetEnemy);
     // Get action data from action object
     let { action_name, action_damage, action_heal, action_hitFlying, action_hitDefense, action_dodgeable, action_statusEffectInflicted } = action.action_data;
 
@@ -392,13 +388,13 @@ export const fightBattle = async (req, res) => {
     } else if (!targetEnemy && action.action_entity === "Player") {
       // If the player has no target enemy, auto-resolve to the first alive enemy in the list. If there are no alive enemies, skip the action
       let retargetEnemy;
-      if (aliveEnemies.length > 0) {
-        retargetEnemy = aliveEnemies[0].enemy_Id;
+      if (getEnemies.length > 0) {
+        retargetEnemy = getEnemies[0].enemy_Id;
       }
       if (!retargetEnemy) {
         continue;
       } else {
-        targetEnemy = aliveEnemies.find(enemy => enemy.enemy_Id === retargetEnemy);
+        targetEnemy = getEnemies.find(enemy => enemy.enemy_Id === retargetEnemy);
       }
     } else if (action.action_entity === "Enemy" && isDodged && !matchResolved) {
       // NEW: If isDodge, skip the current enemy's attack completely. Checks if the attack is NOT a healing move (so that the player doesn't dodge nothing)
@@ -550,18 +546,19 @@ export const fightBattle = async (req, res) => {
       } else if (playerPassive.heal !== 0) {
         battleLog.push(player_Name + " healed 1 health from their passive");
       }
-      // Delete the enemy from record if they died in this process
+      // If enemy died in this process, announce it in battle log and remove them from the list (later on) and from the active battle table enemy (since the final update doesn't do this)
       if (enemy_health <= 0) {
         battleLog.push(enemy_Name + " has fainted!");
         let deleteEnemy = await deleteActiveBattleEnemy(targetEnemy.enemy_Id);
-      } else {
-        // Update enemy stats into active Battle Table Enemy if they are still alive
-        let updateEnemy = await updateActiveBattleTableEnemy(
-          targetEnemy.enemy_Id,
-          enemy_health,
-          enemy_defense
-        )
       }
+      // Updates enemy stats in the getEnemies list
+      let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === targetEnemy.enemy_Id);
+      updateEnemy.health = enemy_health;
+      updateEnemy.defense = enemy_defense;
+
+      // Remove dead enemies (if any), natural filter
+      getEnemies = getEnemies.filter(enemy => enemy.health > 0); // Remove dead enemies from the list
+
     } else if (action.action_entity === "Enemy" && !matchResolved && !isDodged) { //Enemy's combat math and logic calculator
       let enemy_Name = currentEnemy.enemyName;
       let enemy_health = currentEnemy.health;
@@ -660,12 +657,10 @@ export const fightBattle = async (req, res) => {
           }
         }
       }
-      //Update enemy stats
-      let updateEnemy = await updateActiveBattleTableEnemy(
-        currentEnemy.enemy_Id,
-        enemy_health,
-        enemy_defense
-      )
+      // Updates enemy stats in the getEnemies list
+      let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === enemyPosition);
+      updateEnemy.health = enemy_health;
+      updateEnemy.defense = enemy_defense;
     }
     /** Player resolution - If the attacks caused the player to die, call for battle resolution */
     if (player_health <= 0 && !matchResolved) {
@@ -674,10 +669,9 @@ export const fightBattle = async (req, res) => {
       resolutionLog.push(player_Name + " has fainted! The enemies have won the battle!");
     }
     // Enemy resolution - If ALL the enemies in battle are defeated, call for battle resolution
-    const checkAliveEnemies = await getActiveBattleEnemies();
-    if (!checkAliveEnemies[0] && !matchResolved) {
-      matchResolved = true;
+    if (getEnemies.length == 0 && !matchResolved) {
       Victor = player_Name;
+      matchResolved = true;
       resolutionLog.push("All enemies have been defeated! " + player_Name + " won the battle!");
     }
     // Checks if agility goes above 100 (from either play buffs or enemy influence)
@@ -706,39 +700,28 @@ export const fightBattle = async (req, res) => {
   }
   // Enemy healing from Exalted Mage
   if (enemy_healAll) {
-    let healEnemies = await getActiveBattleEnemies();
-    for (let index = 0; index < healEnemies.length; index++) {
-      const enemy = healEnemies[index];
-      let getBaseEnemyStats = await getEnemyStats(enemy.enemyName);
+    for (let index = 0; index < getEnemies.length; index++) {
+      let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
       let baseEnemyStats = getBaseEnemyStats[0];
       let baseEnemy_health = baseEnemyStats.health;
 
-      enemy.health += 3;
-      if (enemy.health > baseEnemy_health) {
-        enemy.health = baseEnemy_health;
+      getEnemies[index].health += 3;
+      if (getEnemies[index].health > baseEnemy_health) {
+        getEnemies[index].health = baseEnemy_health;
       }
-
-      let updateEnemy = await updateActiveBattleTableEnemy(
-        enemy.enemy_Id,
-        enemy.health,
-        enemy.defense
-      )
     }
   }
   /** Presents the final stats of the player once combat math has been completed. Will display even after match resolution */
-  //replyList.push(player_Name + " final stats:")
   let statusSummary = await getStatusByEntity(player_Name);
-  //replyList.push("Statuses active on " + player_Name + ":");
 
   for (let index = 0; index < statusSummary.length; index++) {
     const element = statusSummary[index];
     playerStatusesLog.push(element.statusName);
   }
   // Write enemies stats into replyList. Loops through each alive enemy
-  const checkEnemies = await getActiveBattleEnemies();
   let enemyLog = [];
-  for (let index = 0; index < checkEnemies.length; index++) {
-    const enemy = checkEnemies[index];
+  for (let index = 0; index < getEnemies.length; index++) {
+    const enemy = getEnemies[index];
     const enemy_slot = enemy.enemy_Id;
     const enemy_Name = enemy.enemyName;
     const enemy_health = enemy.health;
@@ -748,7 +731,6 @@ export const fightBattle = async (req, res) => {
 
     let statusLog = [];
 
-    //replyList.push(enemy_Name + " final stats:")
     enemyLog.push({
       "enemyPosition": enemy_slot,
       "enemyName": enemy_Name,
@@ -758,7 +740,6 @@ export const fightBattle = async (req, res) => {
       "speedy?": enemy_speedy
     })
     statusSummary = await getStatusByEnemy(enemy.enemy_Id);
-    //replyList.push("Statuses active on " + enemy_Name + ":");
 
     for (let index = 0; index < statusSummary.length; index++) {
       const element = statusSummary[index];
@@ -774,9 +755,19 @@ export const fightBattle = async (req, res) => {
     player_agility,
     matchResolved
   );
+  // Write the mutated Enemy stats and turn index into the Active Battle Table Enemy
+  for (let index = 0; index < getEnemies.length; index++) {
+    const enemy = getEnemies[index];
+    let updatedEnemyStats = await updateActiveBattleTableEnemy(
+      enemy.enemy_Id,
+      enemy.health,
+      enemy.defense,
+      enemy.current_turn_index
+    );
+  }
   // Update user's table by increasing levelProgress by 1 if the player won or set back to 1 if the player lost
   if (matchResolved && Victor === player_Name && currentLevel === 5) {
-    resolutionLog.push("Congragulations! You defeated the King! Level progress set back to 1");
+    resolutionLog.push("Congratulations! You defeated the King! Level progress set back to 1");
     let updateUserLevelProgress = await updateLevelProgress(player_Name, 1); // Allows for replayability
 
     let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
@@ -810,7 +801,4 @@ export const fightBattle = async (req, res) => {
   replyList.push(enemyLog);
 
   return res.status(200).json(replyList)
-  //} catch (error) {
-  //return res.status(500).json({ "error": "Internal server error" });
-  //}
 }
