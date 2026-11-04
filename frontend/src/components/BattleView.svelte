@@ -13,7 +13,13 @@
   let battleLogs = ["Battle initiated! Prepare for combat."];
   let logContainer;
 
-  let player = { playerName: activeUser, health: 30, defense: 0, agility: 0 };
+  let player = {
+    playerName: activeUser,
+    health: 30,
+    defense: 0,
+    agility: 0,
+    intelligence: 0,
+  };
   let playerStatuses = [];
 
   let enemies = [1, 2, 3, 4].map((pos) => ({
@@ -22,6 +28,7 @@
     health: 0,
     defense: 0,
     isDead: true,
+    isReviving: false,
     statuses: [],
   }));
   let hand = [];
@@ -51,6 +58,7 @@
       health: 0,
       defense: 0,
       isDead: true,
+      isReviving: false,
       statuses: [],
     }));
 
@@ -62,10 +70,12 @@
         if (enemyObj) {
           const pos = enemyObj.enemyPosition || Math.floor(i / 2) + 1;
           if (pos >= 1 && pos <= 4) {
+            const isReviving = statusList.includes("Revive");
             slots[pos - 1] = {
               ...enemyObj,
               id: pos,
-              isDead: enemyObj.health <= 0,
+              isDead: enemyObj.health <= 0 && !isReviving,
+              isReviving,
               statuses: statusList,
             };
           }
@@ -88,13 +98,20 @@
         enemies = [1, 2, 3, 4].map((pos) => {
           const found = rawEnemies[pos - 1];
           return found
-            ? { ...found, id: pos, isDead: found.health <= 0, statuses: [] }
+            ? {
+                ...found,
+                id: pos,
+                isDead: found.health <= 0,
+                isReviving: false,
+                statuses: [],
+              }
             : {
                 id: pos,
                 enemyName: "Fainted",
                 health: 0,
                 defense: 0,
                 isDead: true,
+                isReviving: false,
                 statuses: [],
               };
         });
@@ -121,7 +138,7 @@
   function addTarget(enemyId) {
     if (isBattleConcluded) return;
     const enemy = enemies.find((e) => e.id === enemyId);
-    if (!enemy || enemy.isDead || enemy.health <= 0) return;
+    if (!enemy || enemy.isDead || enemy.isReviving || enemy.health <= 0) return;
     if (selectedTargets.length < 2)
       selectedTargets = [...selectedTargets, enemyId];
   }
@@ -265,20 +282,32 @@
 
   async function fleeBattle() {
     try {
-      await fetch("http://localhost:3000/battle/reset", {
+      const response = await fetch("http://localhost:3000/battle/reset", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-      }).catch(() =>
-        fetch("http://localhost:3000/battle/reset", {
-          method: "POST",
-          credentials: "include",
-        }),
-      );
-    } catch (err) {
-      console.warn("Battle reset notice:", err);
-    } finally {
+      });
+      const data = await response.json();
+
+      if (response.status === 404) {
+        navigate("menu");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            `Failed to reset battle (${response.status})`,
+        );
+      }
+
       navigate("menu");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to reset battle";
+      battleLogs = [...battleLogs, `Error: ${message}`];
+      console.warn("Battle reset failed:", error);
     }
   }
 
@@ -384,15 +413,17 @@
           {@const tCount = getTargetCount(enemy.id)}
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <div
-            class="entity-card enemy {enemy.isDead ? 'dead' : ''} {tCount > 0
-              ? 'targeted'
-              : ''} {damagedEnemyIds.includes(enemy.id)
+            class="entity-card enemy {enemy.isDead || enemy.isReviving
+              ? 'dead'
+              : ''} {tCount > 0 ? 'targeted' : ''} {damagedEnemyIds.includes(
+              enemy.id,
+            )
               ? 'damage-feedback'
               : statusAppliedEnemyIds.includes(enemy.id)
                 ? 'status-feedback'
                 : healedEnemyIds.includes(enemy.id)
                   ? 'healing-feedback'
-                : ''}"
+                  : ''}"
             on:click={() => addTarget(enemy.id)}
             title={enemy.statuses?.length > 0
               ? `Active Statuses: ${enemy.statuses.join(", ")}`
@@ -415,6 +446,9 @@
                 <span class="def">🛡️ {enemy.defense || 0}</span>
               </div>
               <div class="traits">
+                {#if enemy["undead?"]}
+                  <span class="trait-tag">💀 Undead</span>
+                {/if}
                 {#if enemy["speedy?"]}
                   <span class="trait-tag">⚡ Speedy</span>
                 {/if}
@@ -457,7 +491,7 @@
               ? 'healing-feedback'
               : playerAgilityConsumed
                 ? 'agility-feedback'
-              : ''}"
+                : ''}"
         title={playerStatuses.length > 0
           ? `Active Statuses: ${playerStatuses.join(", ")}`
           : "No active statuses"}
@@ -469,6 +503,7 @@
           <span class="agi {playerAgilityConsumed ? 'agility-text' : ''}">
             👟 {player.agility || 0}
           </span>
+          <span class="int">🧠 {player.intelligence || 0}</span>
         </div>
         {#if playerStatuses.length > 0}
           <div class="traits">
@@ -981,7 +1016,9 @@
   @keyframes healing-feedback {
     0% {
       transform: scale(1);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 0 rgba(70, 220, 120, 0);
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(70, 220, 120, 0);
     }
     35% {
       transform: scale(1.035);
@@ -989,7 +1026,9 @@
     }
     100% {
       transform: scale(1);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 0 rgba(70, 220, 120, 0);
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 0 0 rgba(70, 220, 120, 0);
     }
   }
   @keyframes damage-text {

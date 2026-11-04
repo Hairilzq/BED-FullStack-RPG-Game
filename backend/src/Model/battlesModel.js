@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { activeBattleTableEnemy, activeBattleTablePlayer, activeStatusesTracker, cardDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerLoadout, playerStats, statusEffectDatabase, users } from "../db/schema.js";
+import { activeBattleTableEnemy, activeBattleTablePlayer, activeStatusesTracker, cardAbilitiesDB, cardDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerLoadout, playerStats, statusEffectDatabase, users } from "../db/schema.js";
 import { db } from "../db/connection.js";
 
+//#region - General Get Routes
 /** Get all cards for showing */
 export const getAllCards = async () => {
   const getRecords = await db
@@ -81,6 +82,17 @@ export const getPassive = async (passiveName) => {
     .where(eq(passivesDB.passiveName, passiveName));
   return getRecords;
 }
+/** Fetches a card ability from the cardAbilities database */
+export const getCardAbility = async (abilityName, abilityLevel) => {
+  const getRecords = await db
+    .select()
+    .from(cardAbilitiesDB)
+    .where(and(
+      eq(cardAbilitiesDB.abilityName, abilityName),
+      eq(cardAbilitiesDB.abilityLevel, abilityLevel)
+    ));
+  return getRecords;
+}
 // Calls user's table using playerName to get the level ID that player is currently on
 export const getLevelByUser = async (username) => {
   const getRecords = await db
@@ -88,6 +100,7 @@ export const getLevelByUser = async (username) => {
     .from(users)
     .where(eq(users.username, username));
   return getRecords;
+
 }
 // Calls levelTemplates to get the enemies for a specific level
 export const getLevelEnemies = async (levelID) => {
@@ -97,6 +110,8 @@ export const getLevelEnemies = async (levelID) => {
     .where(eq(levelTemplates.id, levelID));
   return getRecords;
 }
+//#endregion
+//#region - Player Profile Functions
 // Update the levelProgress in user's table
 export const updateLevelProgress = async (username, levelID) => {
   const updateRecord = await db
@@ -177,6 +192,8 @@ export const updatePlayerStatsName = async (cleanRequestedUser, newUsername) => 
     .where(eq(playerStats.playerName, cleanRequestedUser));
   return updatedRecord;
 }
+//#endregion
+//#region - Battle Functions
 /** Fetches a status effect from the status effect database according to the target effect */
 export const getStatusEffect = async (statusName) => {
   const getRecords = await db
@@ -200,7 +217,7 @@ export const getActiveBattleEnemies = async () => {
   return getRecords;
 }
 /** Creates a new battle by pulling Player stats from the respective database */
-export const createBattlePlayer = async (playerName, health, defense, agility, passiveName, matchResolved) => {
+export const createBattlePlayer = async (playerName, health, defense, agility, intelligence, passiveName, matchResolved, turnCounter) => {
   const newRecord = await db
     .insert(activeBattleTablePlayer)
     .values({
@@ -208,14 +225,16 @@ export const createBattlePlayer = async (playerName, health, defense, agility, p
       health: health,
       defense: defense,
       agility: agility,
+      intelligence: intelligence,
       passiveName: passiveName,
-      matchResolved: matchResolved
+      matchResolved: matchResolved,
+      turnCounter: turnCounter
     })
     .returning();
   return newRecord;
 }
 /** Creates a new battle by pulling Enemy stats from the respective database */
-export const createBattleEnemy = async (enemy_Id, enemyName, health, defense, flying, speedy, current_turn_index) => {
+export const createBattleEnemy = async (enemy_Id, enemyName, health, defense, flying, undead, speedy, dead, current_turn_index) => {
   const newRecord = await db
     .insert(activeBattleTableEnemy)
     .values({
@@ -224,7 +243,9 @@ export const createBattleEnemy = async (enemy_Id, enemyName, health, defense, fl
       health: health,
       defense: defense,
       flying: flying,
+      undead: undead,
       speedy: speedy,
+      dead: dead,
       current_turn_index: current_turn_index
     })
     .returning();
@@ -252,26 +273,29 @@ export const resetStatusTracker = async () => {
   return deletedRecord;
 }
 /** Updates active battle table for player */
-export const updateActiveBattleTablePlayer = async (entityName, health, defense, agility, matchResolved) => {
+export const updateActiveBattleTablePlayer = async (entityName, health, defense, agility, intelligence, turnCounter, matchResolved) => {
   const updateRecord = await db
     .update(activeBattleTablePlayer)
     .set({
       health: health,
       defense: defense,
       agility: agility,
+      intelligence: intelligence,
+      turnCounter: turnCounter,
       matchResolved: matchResolved
     })
     .where(eq(activeBattleTablePlayer.playerName, entityName));
   return updateRecord;
 }
 /** Updates active battle table for enemies */
-export const updateActiveBattleTableEnemy = async (enemy_id, health, defense, current_turn_index) => {
+export const updateActiveBattleTableEnemy = async (enemy_id, health, defense, current_turn_index, dead) => {
   const updateRecord = await db
     .update(activeBattleTableEnemy)
     .set({
       health: health,
       defense: defense,
-      current_turn_index: current_turn_index
+      current_turn_index: current_turn_index,
+      dead: dead
     })
     .where(eq(activeBattleTableEnemy.enemy_Id, enemy_id));
   return updateRecord;
@@ -284,16 +308,10 @@ export const deleteActiveBattleEnemy = async (enemy_id) => {
     .returning();
   return deletedRecord;
 };
-/** Gets an active status to see if it is present to prevent overlaps */
-export const getStatusByName = async (statusName) => {
-  const getRecord = await db
-    .select()
-    .from(activeStatusesTracker)
-    .where(eq(activeStatusesTracker.statusName, statusName));
-  return getRecord;
-}
+//#endregion
+//#region - Status Effect Functions
 /** Gets all active statuses tied to the player */
-export const getStatusByEntity = async (entityName) => {
+export const getStatusByPlayer = async (entityName) => {
   const getRecord = await db
     .select()
     .from(activeStatusesTracker)
@@ -306,6 +324,22 @@ export const getStatusByEnemy = async (enemy_id) => {
     .select()
     .from(activeStatusesTracker)
     .where(eq(activeStatusesTracker.enemy_Id, enemy_id));
+  return getRecord;
+}
+/** Gets an active status on a player by player_Name and the statusName to see if it is present to prevent overlaps */
+export const getStatusByNameAndPlayer = async (player_Name, statusName) => {
+  const getRecord = await db
+    .select()
+    .from(activeStatusesTracker)
+    .where(and(eq(activeStatusesTracker.entityInflicted, player_Name), eq(activeStatusesTracker.statusName, statusName)));
+  return getRecord;
+}
+/** Gets an active status on an enemy by enemy_Id and the statusName to see if it is present to prevent overlaps */
+export const getStatusByNameAndEnemy = async (enemy_id, statusName) => {
+  const getRecord = await db
+    .select()
+    .from(activeStatusesTracker)
+    .where(and(eq(activeStatusesTracker.enemy_Id, enemy_id), eq(activeStatusesTracker.statusName, statusName)));
   return getRecord;
 }
 /** Adds active statuses to the active status tracker */
@@ -334,7 +368,7 @@ export const deleteStatus = async (status_id) => {
     .returning();
   return deletedRecord;
 }
-/** Delete active status by name (for Invulnerable mechanic) */
+/** Delete active status by name (for specific statuses) */
 export const deleteStatusByName = async (statusName) => {
   const deletedRecord = await db
     .delete(activeStatusesTracker)
@@ -352,3 +386,4 @@ export const updateStatuses = async (status_id, statusDuration) => {
     .where(eq(activeStatusesTracker.id, status_id));
   return updateRecord;
 }
+//#endregion

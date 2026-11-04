@@ -23,6 +23,7 @@ export const playerStats = sqliteTable('playerStats', {
   health: integer('health').notNull(),
   defense: integer('defense').notNull(),
   agility: integer('agility').notNull(),
+  intelligence: integer('intelligence').notNull(),
   passiveName: text('passiveName').notNull()
 })
 
@@ -33,6 +34,7 @@ export const enemyStats = sqliteTable('enemyStats', {
   health: integer('health').notNull(),
   defense: integer('defense').notNull(),
   flying: boolean('flying?').notNull(),
+  undead: boolean('undead?').notNull(),
   speedy: boolean('speedy?').notNull(),
   enemyDesc: text('enemyDesc').notNull()
 })
@@ -47,8 +49,20 @@ export const cardDB = sqliteTable('cardDB', {
   hitFlying: boolean('hitFlying?').notNull(),
   hitDefense: boolean('hitDefense?').notNull(),
   statusEffectInflicted: text('statusEffectInflicted').notNull(),
+  cardAbility: text('cardAbility').notNull(),
+  abilityLevel: integer('abilityLevel').notNull(),
   cardDesc: text('cardDesc').notNull()
 })
+/** Card ability databases - stores the stats and combat logic of card abilities used by certain cards */
+export const cardAbilitiesDB = sqliteTable('cardAbilitiesDB', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  abilityName: text('abilityName').notNull(),
+  abilityLevel: integer('abilityLevel').notNull(),
+  SBdamage: integer('SBdamage').notNull(),
+  AOEdamage: integer('AOEdamage').notNull(),
+  CritUP: integer('CritUP').notNull(),
+  MultiHit: integer('MultiHit').notNull()
+});
 
 /** Passives database - stores passive abilities */
 export const passivesDB = sqliteTable('passivesDB', {
@@ -60,6 +74,7 @@ export const passivesDB = sqliteTable('passivesDB', {
   healthBuff: integer('healthBuff').notNull(),
   defense: integer('defense').notNull(),
   agilityRegen: integer('agilityRegen').notNull(),
+  intelligenceRegen: integer('intelligenceRegen').notNull(),
   passiveDesc: text('passiveDesc').notNull(),
 })
 
@@ -72,6 +87,7 @@ export const enemyMovesetDB = sqliteTable('enemyMovesetDB', {
   heal: integer('heal').notNull(),
   hitDefense: boolean('hitDefense?').notNull(),
   dodgeable: boolean('dodgeable?').notNull(),
+  enemyMoveAbility: text('enemyMoveAbility').notNull(),
   statusEffectInflicted: text('statusEffectInflicted').notNull(),
   turn_index: integer('turn_index').notNull()
 })
@@ -85,6 +101,8 @@ export const statusEffectDatabase = sqliteTable('statusEffectDatabase', {
   defenseUP: integer('defenseUP').notNull(),
   defenseDOWN: integer('defenseDOWN').notNull(),
   dynamicStatus: boolean('dynamicStatus').notNull(),
+  playerPositive: boolean('playerPositive?').notNull(),
+  enemyPositive: boolean('enemyPositive?').notNull(),
   statusDuration: integer('statusDuration').notNull()
 })
 
@@ -102,7 +120,9 @@ export const activeBattleTablePlayer = sqliteTable('activeBattleTablePlayer', {
   health: integer('health').notNull(),
   defense: integer('defense').notNull(),
   agility: integer('agility').notNull(),
+  intelligence: integer('intelligence').notNull(),
   passiveName: text('passiveName').notNull(),
+  turnCounter: integer('turnCounter').notNull(),
   matchResolved: boolean('matchResolved?').notNull()
 })
 
@@ -114,7 +134,9 @@ export const activeBattleTableEnemy = sqliteTable('activeBattleTableEnemy', {
   health: integer('health').notNull(),
   defense: integer('defense').notNull(),
   flying: boolean('flying?').notNull(),
+  undead: boolean('undead?').notNull(),
   speedy: boolean('speedy?').notNull(),
+  dead: boolean('dead?').notNull(),
   current_turn_index: integer('current_turn_index').notNull()
 })
 

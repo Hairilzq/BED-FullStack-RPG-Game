@@ -1,4 +1,4 @@
-import { addStatus, checkLoadout, createBattleEnemy, createBattlePlayer, deleteActiveBattleEnemy, deleteStatus, deleteStatusByName, getActiveBattle, getActiveBattleEnemies, getCard, getEnemyMove, getEnemyStats, getLevelByUser, getLevelEnemies, getLoadout, getPassive, getPlayerStats, getStatusByEnemy, getStatusByEntity, getStatusEffect, resetActiveBattleEnemy, resetActiveBattlePlayer, resetStatusTracker, updateActiveBattleTableEnemy, updateActiveBattleTablePlayer, updateLevelProgress, updateStatuses } from "../Model/battlesModel.js";
+import { addStatus, checkLoadout, createBattleEnemy, createBattlePlayer, deleteActiveBattleEnemy, deleteStatus, deleteStatusByName, getActiveBattle, getActiveBattleEnemies, getCard, getCardAbility, getEnemyMove, getEnemyStats, getLevelByUser, getLevelEnemies, getLoadout, getPassive, getPlayerStats, getStatusByEnemy, getStatusByPlayer, getStatusByNameAndPlayer, getStatusByNameAndEnemy, getStatusEffect, resetActiveBattleEnemy, resetActiveBattlePlayer, resetStatusTracker, updateActiveBattleTableEnemy, updateActiveBattleTablePlayer, updateLevelProgress, updateStatuses } from "../Model/battlesModel.js";
 
 /** Initiate levels for players to progress */
 export const initiateLevels = async (req, res) => {
@@ -24,6 +24,7 @@ export const initiateLevels = async (req, res) => {
       "playerName": PlayerStatistics.playerName,
       "health": PlayerStatistics.health + healthBuff - healthDebuff,
       "defense": PlayerStatistics.defense + defenseBuff,
+      "intelligence": PlayerStatistics.intelligence,
       "agility": PlayerStatistics.agility
     }
     // Push to activeBattleTablePlayer
@@ -32,8 +33,10 @@ export const initiateLevels = async (req, res) => {
       PlayerStatistics.health + healthBuff - healthDebuff,
       PlayerStatistics.defense + defenseBuff,
       PlayerStatistics.agility,
+      PlayerStatistics.intelligence,
       PlayerStatistics.passiveName,
-      false
+      false,
+      0
     );
     // Fetch level ID the player is on
     let getLevelID = await getLevelByUser(playerName);
@@ -41,12 +44,6 @@ export const initiateLevels = async (req, res) => {
     let currentLevel = getLevelID.levelProgress;
 
     let getLevel = await getLevelEnemies(currentLevel);
-    // If the player has no level progress, set them to level 1 and update their progress in the database
-    if (!getLevel[0]) {
-      currentLevel = 1;
-      await updateLevelProgress(playerName, currentLevel);
-      getLevel = await getLevelEnemies(currentLevel);
-    }
     getLevel = getLevel[0];
     const enemyList = [getLevel.enemyName_1, getLevel.enemyName_2, getLevel.enemyName_3, getLevel.enemyName_4];
     let enemyStatsPrint = [];
@@ -63,13 +60,16 @@ export const initiateLevels = async (req, res) => {
           EnemyStatistics.health,
           EnemyStatistics.defense,
           EnemyStatistics.flying,
+          EnemyStatistics.undead,
           EnemyStatistics.speedy,
+          false,
           0
         );
         enemyStatsPrint.push({
           "enemyName": EnemyStatistics.enemyName,
           "health": EnemyStatistics.health,
           "defense": EnemyStatistics.defense,
+          "undead?": EnemyStatistics.undead,
           "flying?": EnemyStatistics.flying,
           "speedy?": EnemyStatistics.speedy
         });
@@ -77,6 +77,8 @@ export const initiateLevels = async (req, res) => {
     }
     let replyList = [];
     const playerLoadout = await getLoadout(playerName);
+
+    // Push all relevant data into replyList to be sent to the frontend
     replyList.push(getLevel.id);
     replyList.push(getLevel.levelName);
     replyList.push(playerLoadout);
@@ -99,7 +101,13 @@ export const resetBattle = async (req, res) => {
       return res.status(404).json({ "error": "No battle is active and running!" })
     }
     const player_Name = req.user.id;
-    let updateUserLevelProgress = await updateLevelProgress(player_Name, 1);
+
+    // Fetch level ID the player is on. NEW; no longer resets the player's level progress
+    let getLevelID = await getLevelByUser(player_Name);
+    getLevelID = getLevelID[0];
+    let currentLevel = getLevelID.levelProgress;
+
+    let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel);
 
     const resetCurrentBattlePlayer = await resetActiveBattlePlayer();
     const resetCurrentBattleEnemy = await resetActiveBattleEnemy();
@@ -112,6 +120,7 @@ export const resetBattle = async (req, res) => {
 
 /** Main combat logic and math calculator here. Essentially a glorified UPDATE function */
 export const fightBattle = async (req, res) => {
+  //#region Input Validation
   /** Accept player input of 2 chosen cards and up to 2 targets. Validates that the cards are real based on what is stored in the database */
   const { card_1, card_2 } = req.body;
   let { target_1, target_2 } = req.body;
@@ -132,6 +141,8 @@ export const fightBattle = async (req, res) => {
   if (!clean_card_1 || !clean_card_2) {
     return res.status(400).json({ "error": "card_1 or card_2 is not a known card" })
   };
+  //#endregion
+  //#region Data retrieval and processing
   /** Pulls data from the Active Battle Table. If no battle is active, return error. Else, proceed */
   let checkForBattle = await getActiveBattle();
   checkForBattle = checkForBattle[0];
@@ -146,22 +157,29 @@ export const fightBattle = async (req, res) => {
   let player_health = PlayerStatistics.health;
   let player_defense = PlayerStatistics.defense;
   let player_agility = PlayerStatistics.agility;
+  let player_intelligence = PlayerStatistics.intelligence;
   let player_passive = PlayerStatistics.passiveName;
 
+  // Gets player Passive
   let playerPassive = await getPassive(player_passive);
   playerPassive = playerPassive[0];
 
   // Get resolution flag from player
   let matchResolved = PlayerStatistics.matchResolved;
 
+  // Get Battle turnCounter from player
+  let turnCounter = PlayerStatistics.turnCounter;
+  turnCounter += 1;
+
   if (matchResolved) {
-    return res.status(400).json({ "error": "Battle has concluded! /battle/reset to clear the battle!" })
+    return res.status(400).json({ "error": "Battle has concluded!" })
   }
   /** Pulls the base stats of the player. Used to prevent stat inflation */
   let getBasePlayerStats = await getPlayerStats(player_Name);
   let basePlayerStats = getBasePlayerStats[0];
   let basePlayer_health = basePlayerStats.health + playerPassive.healthBuff - playerPassive.healthDebuff;
   let basePlayer_defense = basePlayerStats.defense + playerPassive.defense;
+  let basePlayer_intelligence = basePlayerStats.intelligence;
 
   /** Checks if the player in battle has the chosen cards equipped in their loadout */
   let isInLoadout = await checkLoadout(player_Name, clean_card_1.cardName);
@@ -191,7 +209,9 @@ export const fightBattle = async (req, res) => {
       action_heal: clean_card_1.heal,
       action_hitFlying: clean_card_1.hitFlying,
       action_hitDefense: clean_card_1.hitDefense,
-      action_statusEffectInflicted: clean_card_1.statusEffectInflicted
+      action_statusEffectInflicted: clean_card_1.statusEffectInflicted,
+      action_cardAbility: clean_card_1.cardAbility,
+      action_abilityLevel: clean_card_1.abilityLevel
     }
   })
   actionsTimeline.push({
@@ -204,9 +224,14 @@ export const fightBattle = async (req, res) => {
       action_heal: clean_card_2.heal,
       action_hitFlying: clean_card_2.hitFlying,
       action_hitDefense: clean_card_2.hitDefense,
-      action_statusEffectInflicted: clean_card_2.statusEffectInflicted
+      action_statusEffectInflicted: clean_card_2.statusEffectInflicted,
+      action_cardAbility: clean_card_2.cardAbility,
+      action_abilityLevel: clean_card_2.abilityLevel
     }
   })
+  //#endregion
+  //#region Enemy Turn Logic
+
   /* NEW; To accomodate more enemies, sequence checker now iterates over the list of alive enemies,
      fetches their moves based on turn index (done by Model) and pushes it into actionsTimeline. Moves
      now have priority on them which will allow some moves to go before others (like enemies with speedy)
@@ -214,54 +239,59 @@ export const fightBattle = async (req, res) => {
   // Fetch all active enemies in the battle ONCE; the server mutates this local copy during battle and writes it to the db once a battle turn is finished.
   let getEnemies = await getActiveBattleEnemies();
   for (let index = 0; index < getEnemies.length; index++) {
-    const currentEnemy = getEnemies[index];
-    const enemyIndex = currentEnemy.enemy_Id;
-    let enemyCurrentMoveset = await getEnemyMove(currentEnemy.enemyName, currentEnemy.current_turn_index); //Model automatically sources move with current turn index
-    let speedy_buff = 0;
-    currentEnemy.current_turn_index += 1;
+    if (getEnemies[index].health > 0) { //If the enemy is 'alive', allow them to take their turn
+      const currentEnemy = getEnemies[index];
+      const enemyIndex = currentEnemy.enemy_Id;
+      let enemyCurrentMoveset = await getEnemyMove(currentEnemy.enemyName, currentEnemy.current_turn_index); //Model automatically sources move with current turn index
+      let speedy_buff = 0;
+      currentEnemy.current_turn_index += 1;
 
-    if (!enemyCurrentMoveset[0]) { //Loopback if current_active_turn_index is out of range
-      enemyCurrentMoveset = await getEnemyMove(currentEnemy.enemyName, 0);
-      currentEnemy.current_turn_index = 1; // Set back to 1, the next turn since the turn 0 move has already been acquired
-    }
-    const updateIndex = await updateActiveBattleTableEnemy(currentEnemy.enemy_Id, currentEnemy.health, currentEnemy.defense, currentEnemy.current_turn_index)
-    if (currentEnemy.speedy) { //Speedy priority; enemies with speedy start before the player, hence buffing their priority score
-      speedy_buff = 5;
-    }
-    let enemyCurrentMove1 = enemyCurrentMoveset[0];
-    actionsTimeline.push({
-      action_entity: "Enemy",
-      entityId: enemyIndex,
-      action_priority: 4 - index + speedy_buff, //Priority; actionsTimeline will be sorted by priority. Player usually goes first unless an enemy has a speedy buff
-      action_data: {
-        action_name: enemyCurrentMove1.moveName,
-        action_damage: enemyCurrentMove1.damage,
-        action_heal: enemyCurrentMove1.heal,
-        action_hitDefense: enemyCurrentMove1.hitDefense,
-        action_dodgeable: enemyCurrentMove1.dodgeable,
-        action_statusEffectInflicted: enemyCurrentMove1.statusEffectInflicted
+      if (!enemyCurrentMoveset[0]) { //Loopback if current_active_turn_index is out of range
+        enemyCurrentMoveset = await getEnemyMove(currentEnemy.enemyName, 0);
+        currentEnemy.current_turn_index = 1; // Set back to 1, the next turn since the turn 0 move has already been acquired
       }
-    })
-    if (enemyCurrentMoveset[1]) { //if an enemy has 2 moves in a turn, acquire that move
-      let enemyCurrentMove2 = enemyCurrentMoveset[1];
+      const updateIndex = await updateActiveBattleTableEnemy(currentEnemy.enemy_Id, currentEnemy.health, currentEnemy.defense, currentEnemy.current_turn_index)
+      if (currentEnemy.speedy) { //Speedy priority; enemies with speedy start before the player, hence buffing their priority score
+        speedy_buff = 5;
+      }
+      let enemyCurrentMove1 = enemyCurrentMoveset[0];
       actionsTimeline.push({
         action_entity: "Enemy",
         entityId: enemyIndex,
         action_priority: 4 - index + speedy_buff, //Priority; actionsTimeline will be sorted by priority. Player usually goes first unless an enemy has a speedy buff
         action_data: {
-          action_name: enemyCurrentMove2.moveName,
-          action_damage: enemyCurrentMove2.damage,
-          action_heal: enemyCurrentMove2.heal,
-          action_hitDefense: enemyCurrentMove2.hitDefense,
-          action_dodgeable: enemyCurrentMove2.dodgeable,
-          action_statusEffectInflicted: enemyCurrentMove2.statusEffectInflicted
+          action_name: enemyCurrentMove1.moveName,
+          action_damage: enemyCurrentMove1.damage,
+          action_heal: enemyCurrentMove1.heal,
+          action_hitDefense: enemyCurrentMove1.hitDefense,
+          action_dodgeable: enemyCurrentMove1.dodgeable,
+          action_enemyMoveAbility: enemyCurrentMove1.enemyMoveAbility,
+          action_statusEffectInflicted: enemyCurrentMove1.statusEffectInflicted,
         }
       })
+      if (enemyCurrentMoveset[1]) { //if an enemy has 2 moves in a turn, acquire that move
+        let enemyCurrentMove2 = enemyCurrentMoveset[1];
+        actionsTimeline.push({
+          action_entity: "Enemy",
+          entityId: enemyIndex,
+          action_priority: 4 - index + speedy_buff, //Priority; actionsTimeline will be sorted by priority. Player usually goes first unless an enemy has a speedy buff
+          action_data: {
+            action_name: enemyCurrentMove2.moveName,
+            action_damage: enemyCurrentMove2.damage,
+            action_heal: enemyCurrentMove2.heal,
+            action_hitDefense: enemyCurrentMove2.hitDefense,
+            action_dodgeable: enemyCurrentMove2.dodgeable,
+            action_enemyMoveAbility: enemyCurrentMove2.enemyMoveAbility,
+            action_statusEffectInflicted: enemyCurrentMove2.statusEffectInflicted
+          }
+        })
+      }
     }
   }
   // Sort the actionsTimeline by Priority
   actionsTimeline.sort((a, b) => b.action_priority - a.action_priority);
-
+  //#endregion
+  //#region Combat Logic and Math
   /** Combat logic and Math happens here - First, checks for status effects ACTIVE on the player/enemy and mutates stats/attacks/actions accordingly
    * This is done by viewing the active statuses tracker and seeing if any statuses are live. Itll read what statuses are linked to what entity, and
    * act accordingly.
@@ -270,14 +300,17 @@ export const fightBattle = async (req, res) => {
   // Variables to hold statusEffects and modify them
   let currentStatusEffect;
   let currentStatusEffectDuration;
-  let addStatusEffect; //IMPORTANT; Variable is used to addStatusEffects, even though it may not look used
+  let addStatusEffect;
+  let checkStatusEffect;
+  let updateStatusEffect;
   // Variables holding flags for certain abilities
   let player_pierce = false;
   let enemy_pierce = false;
+  let isEnemyCritical = false;
   let player_cleanse = false;
   let player_stunned = false;
+  let player_cursed = false;
   let player_invulnerable = false;
-  let player_lifesteal = false;
   let player_agilityUP = false;
   let enemy_healAll = false;
   // Variables to hold message logs
@@ -287,22 +320,39 @@ export const fightBattle = async (req, res) => {
   let playerStatusesLog = [];
   // Variable to hold winner of battle
   let Victor;
-  // Reset player_defense to base stat (from any defense buff)
+  // Reset player stats to base stats (from any buffs)
   player_defense = basePlayer_defense;
-  // For lifestealing
+  // For lifestealing effect
+  let player_lifesteal = false;
   let lifestealAmount = 0;
-  // For agilityUp
-  let agilityUp = 20;
+  // For Berserk effect
+  let playerBerserk = false;
+  let berserkDamage = 0;
+  // For Marked effect
+  let player_marked = false;
+  let markedDamage = 0;
+  // For ShieldBreaker
+  let player_shieldBreaker = false;
+  let shieldBreakerDamage = 0;
+  // For Crossbow
+  let isLoaded = false;
+  let isFiring = false;
+  // For Great Hammer
+  let isPrepped = false;
+  let isSwinging = false;
 
+  //#region 1. Status Effect Logic
   //Pulls active statuses on a player. Runs the logic
-  let allEffects = await getStatusByEntity(player_Name);
-  for (let index = 0; index < allEffects.length; index++) {
-    const element = allEffects[index];
+  let allPlayerEffects = await getStatusByPlayer(player_Name); // Will be used later on for 'Fine Feeling' (Cleanse)
+  for (let index = 0; index < allPlayerEffects.length; index++) {
+    const element = allPlayerEffects[index];
     if (element.statusDuration === 0) {
       const removeStatusEffect = await deleteStatus(element.id);
     } else {
       if (element.statusName === "Invincible") {
         player_stunned = true;
+        player_health += 10; // Healing to offset loosing a turn
+        battleLog.push(player_Name + " healed 10 health from using Brace!");
         battleLog.push(player_Name + " is exhausted from using Brace! They've skipped their turn!");
         let newDuration = element.statusDuration - 1;
         const statusUpdate = await updateStatuses(element.id, newDuration);
@@ -314,7 +364,13 @@ export const fightBattle = async (req, res) => {
       }
       if (element.statusName === "Burn") {
         player_health -= element.damage;
-        battleLog.push(player_Name + " took " + element.damage + " burn damage!");
+        battleLog.push(player_Name + " took " + element.damage + " Burn damage!");
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
+      if (element.statusName === "Poison") {
+        player_health -= element.damage;
+        battleLog.push(player_Name + " took " + element.damage + " Poison damage!");
         let newDuration = element.statusDuration - 1;
         const statusUpdate = await updateStatuses(element.id, newDuration);
       }
@@ -327,9 +383,48 @@ export const fightBattle = async (req, res) => {
         let newDuration = element.statusDuration - 1;
         const statusUpdate = await updateStatuses(element.id, newDuration);
       }
+      if (element.statusName === "RegenAgility") {
+        player_agility += 5;
+        battleLog.push(player_Name + " gained 5 agility from regeneration!");
+        if (player_agility > 100) {
+          player_agility = 100;
+        }
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
+      if (element.statusName === "RegenIntel") {
+        player_intelligence += 5;
+        battleLog.push(player_Name + " gained 5 intelligence from regeneration!");
+        if (player_intelligence > 100) {
+          player_intelligence = 100;
+        }
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
+      if (element.statusName === "BerserkLvl1") {
+        playerBerserk = true;
+        berserkDamage += 1;
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
       if (element.statusName === "Stun") {
         player_stunned = true;
         battleLog.push(player_Name + " is stunned! They've skipped their turn!");
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
+      if (element.statusName === "Loaded") {
+        isLoaded = true;
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
+      if (element.statusName === "Prepped") {
+        isPrepped = true;
+        let newDuration = element.statusDuration - 1;
+        const statusUpdate = await updateStatuses(element.id, newDuration);
+      }
+      if (element.statusName === "Curse") {
+        player_cursed = true;
         let newDuration = element.statusDuration - 1;
         const statusUpdate = await updateStatuses(element.id, newDuration);
       }
@@ -337,7 +432,7 @@ export const fightBattle = async (req, res) => {
   }
   // Iterate through each enemy and mutate stats accordingly
   for (let index = 0; index < getEnemies.length; index++) {
-    allEffects = await getStatusByEnemy(getEnemies[index].enemy_Id);
+    let allEffects = await getStatusByEnemy(getEnemies[index].enemy_Id);
 
     let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
     let baseEnemyStats = getBaseEnemyStats[0];
@@ -346,18 +441,37 @@ export const fightBattle = async (req, res) => {
 
     for (let effect = 0; effect < allEffects.length; effect++) {
       const element = allEffects[effect];
-      if (element.statusDuration === 0) {
+      if (element.statusDuration === 0 && element.statusName !== "Revive") {
         const removeStatusEffect = await deleteStatus(element.id);
         // Update here so that combat loop fetches a fresh record
         let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === getEnemies[index].enemy_Id);
         updateEnemy.health = getEnemies[index].health;
         updateEnemy.defense = baseEnemy_defense;
+      } else if (element.statusDuration === 0 && element.statusName === "Revive") {
+        // Re-establish enemy's stats upon revive
+        let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === getEnemies[index].enemy_Id);
+        updateEnemy.health = baseEnemy_health;
+        updateEnemy.defense = baseEnemy_defense;
+        updateEnemy.current_turn_index = 0;
+
+        battleLog.push(getEnemies[index].enemyName + " has revived!");
+        const removeStatusEffect = await deleteStatus(element.id);
       } else {
         if (element.statusName === "DefenseDOWNLvl3") {
           getEnemies[index].defense -= element.defenseDOWN;
           if (getEnemies[index].defense < 0) {
             getEnemies[index].defense = 0;
           }
+          let newDuration = element.statusDuration - 1;
+          const statusUpdate = await updateStatuses(element.id, newDuration);
+        }
+        if (element.statusName === "Revive") {
+          let newDuration = element.statusDuration - 1;
+          const statusUpdate = await updateStatuses(element.id, newDuration);
+        }
+        if (element.statusName === "Marked") {
+          player_marked = true;
+          markedDamage += 2;
           let newDuration = element.statusDuration - 1;
           const statusUpdate = await updateStatuses(element.id, newDuration);
         }
@@ -368,32 +482,43 @@ export const fightBattle = async (req, res) => {
       }
     }
   }
+  //#endregion
+  //#region 2. Combat Loop
   /** Combat loop - Cycles through actionsTimeline and carries out the combat math and logic of respective actions. If an action causes an entity death, calls for match resolution*/
   for (const action of actionsTimeline) {
+    // Unpack the numeric target/enemy position from the action data
     const playerTargetEnemy = action.targetEntity;
     const enemyPosition = action.entityId;
     // Gets the currentEnemy owning the move in actionsTimeline (if any) or the targetted enemy of the player (if any)
     let currentEnemy = getEnemies.find(enemy => enemy.enemy_Id === enemyPosition);
     let targetEnemy = getEnemies.find(enemy => enemy.enemy_Id === playerTargetEnemy);
     // Get action data from action object
-    let { action_name, action_damage, action_heal, action_hitFlying, action_hitDefense, action_dodgeable, action_statusEffectInflicted } = action.action_data;
+    let { action_name, action_damage, action_heal, action_hitFlying, action_hitDefense, action_dodgeable, action_enemyMoveAbility, action_statusEffectInflicted, action_cardAbility, action_abilityLevel } = action.action_data;
 
     // NEW: Player now has agility stat that determines if they can dodge incoming damage. Determined by chance. Higher agility = Higher chance to dodge.
     const rollDodge = Math.floor(Math.random() * 100) + 1;
     let isDodged = player_agility >= rollDodge;
 
+    // NEW: Player now has intelligence stat that determines if they can land a critical hit. Determined by chance. Higher intelligence = Higher chance to crit.
+    const rollCrit = Math.floor(Math.random() * 100) + 1;
+    let isCritical = player_intelligence >= rollCrit;
+    let RECritical = false; // For CritUP ability which rerolls crits with a higher chance
+
     // Skip the current action if the enemy owning it is dead, or if the target enemy is dead
-    if (!currentEnemy && action.action_entity === "Enemy") {
+    if (action.action_entity === "Enemy" && !currentEnemy) {
       continue;
-    } else if (!targetEnemy && action.action_entity === "Player") {
+    } else if ((!targetEnemy || targetEnemy.health <= 0) && action.action_entity === "Player") {
       // If the player has no target enemy, auto-resolve to the first alive enemy in the list. If there are no alive enemies, skip the action
       let retargetEnemy;
-      if (getEnemies.length > 0) {
-        retargetEnemy = getEnemies[0].enemy_Id;
+      for (let index = 0; index < getEnemies.length; index++) { //Find an alive enemy (excluded Undead enemies still left inside)
+        if (getEnemies[index].health > 0) {
+          retargetEnemy = getEnemies[index].enemy_Id;
+          break; //Break upon finding an enemy
+        }
       }
-      if (!retargetEnemy) {
+      if (!retargetEnemy) { //If no eligible enemies found, means everyone is dead. Simply head towards match resolution
         continue;
-      } else {
+      } else { //If not, acquire that target
         targetEnemy = getEnemies.find(enemy => enemy.enemy_Id === retargetEnemy);
       }
     } else if (action.action_entity === "Enemy" && isDodged && !matchResolved) {
@@ -416,13 +541,13 @@ export const fightBattle = async (req, res) => {
         continue;
       }
     }
-    //Player's combat math and logic calculator. Skipped if player is stunned
+    //#region Player's combat math and logic calculator. Skipped if player is stunned
     if (action.action_entity === "Player" && !matchResolved && !player_stunned) {
       let enemy_Name = targetEnemy.enemyName;
       let enemy_health = targetEnemy.health;
       let enemy_defense = targetEnemy.defense;
       let enemy_flying = targetEnemy.flying;
-      let enemy_speedy = targetEnemy.speedy;
+      let enemy_undead = targetEnemy.undead;
 
       let getBaseEnemyStats = await getEnemyStats(enemy_Name);
       let baseEnemyStats = getBaseEnemyStats[0];
@@ -435,14 +560,14 @@ export const fightBattle = async (req, res) => {
         currentStatusEffect = currentStatusEffect[0];
 
         if (currentStatusEffect.dynamicStatus) {
-          if (currentStatusEffect.statusName === "Invincible") {
+          if (currentStatusEffect.statusName === "Invincible" && !player_cursed) {
             player_defense = 999;
             battleLog.push(player_Name + " used Brace! " + player_Name + " is Invincible!") //Bracing is an exclusive ability, enemies can't use it
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "Invulnerable") {
-            battleLog.push(player_Name + " used Be Invulnerable! Use again to activate!");
+          if (currentStatusEffect.statusName === "Invulnerable" && !player_cursed) {
+            battleLog.push(player_Name + " used Be Invulnerable! Use again next turn to activate!");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
             if (player_invulnerable) {
@@ -451,29 +576,135 @@ export const fightBattle = async (req, res) => {
               const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
             }
           }
-          if (currentStatusEffect.statusName === "Pierce") {
+          if (currentStatusEffect.statusName === "Pierce") { //Bypasses curse since it is just a weapon effect
             player_pierce = true;
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
           if (currentStatusEffect.statusName === "Cleanse") {
             player_cleanse = true;
+            //Iterate through the list of active statuses on the player that are negative and deletes them
+            for (let index = 0; index < allPlayerEffects.length; index++) {
+              let playerEffect = allPlayerEffects[index];
+              if (!playerEffect.playerPositive) {
+                let checkStatus = await getStatusByNameAndPlayer(player_Name, playerEffect.statusName)
+                // Separate check as it is possible that the statusEffect in allPlayerEffects has elapsed
+                if (checkStatus) {
+                  const removeStatusEffect = await deleteStatus(playerEffect.id);
+                }
+              }
+            }
             battleLog.push(player_Name + " used Fine Feeling!");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "Lifesteal") {
+          if (currentStatusEffect.statusName === "Lifesteal" && !player_cursed) {
             player_lifesteal = true;
             battleLog.push(player_Name + " used Lifesteal!");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "AgilityUP") {
+          if (currentStatusEffect.statusName === "AgilityUP" && !player_cursed) {
             player_agilityUP = true;
-            player_agility += agilityUp;
-            battleLog.push(player_Name + " used Energize! Recovered 20 agility points");
+            player_agility += 10;
+            if (player_agility > 100) {
+              player_agility = 100;
+            }
+            battleLog.push(player_Name + " used Energize! Recovered 10 agility points");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+          }
+          if (currentStatusEffect.statusName === "RegenAgility" && !player_cursed) {
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_agility += 5;
+              if (player_agility > 100) {
+                player_agility = 100;
+              }
+              battleLog.push(player_Name + " used Be Vigilant! Recovered 5 agility points");
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            }
+          }
+          if (currentStatusEffect.statusName === "RegenIntel" && !player_cursed) {
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_intelligence += 5;
+              if (player_intelligence > 100) {
+                player_intelligence = 100;
+              }
+              battleLog.push(player_Name + " used Mind Games! Recovered 5 agility points");
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            }
+          }
+          if (currentStatusEffect.statusName === "IntelligenceUP" && !player_cursed) {
+            player_intelligence += 10;
+            if (player_intelligence > 100) {
+              player_intelligence = 100;
+            }
+            battleLog.push(player_Name + " used Smart Tactics! Gained 10 intelligence points");
+            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+          }
+          if (currentStatusEffect.statusName === "BerserkLvl1" && !player_cursed) {
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_health -= 5; //If this somehow kills the player, an guard check at the end of this action will catch it anyways
+              berserkDamage += 1;
+              playerBerserk = true;
+              battleLog.push(player_Name + " used Angry Feeling!");
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            }
+          }
+          if (currentStatusEffect.statusName === "Marked" && !player_cursed) {
+            checkStatusEffect = await getStatusByNameAndEnemy(currentStatusEffect.statusName, targetEnemy.enemy_Id);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_marked = true;
+              markedDamage += 2;
+              battleLog.push(player_Name + " marked " + enemy_Name + ", who will take 2 extra damage from all attacks!");
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            }
+          }
+          if (currentStatusEffect.statusName === "Loaded") {
+            if (isLoaded) {
+              isLoaded = false;
+              isFiring = true;
+              battleLog.push(player_Name + " used " + action_name + "! Crossbow loaded, and firing!");
+              const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
+            } else {
+              isLoaded = true;
+              battleLog.push(player_Name + " used " + action_name + "! Crossbow loaded!");
+              currentStatusEffectDuration = currentStatusEffect.statusDuration;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            }
+          }
+          if (currentStatusEffect.statusName === "Prepped") {
+            if (isPrepped) {
+              isPrepped = false;
+              isSwinging = true;
+              battleLog.push(player_Name + " used " + action_name + "! Hammer prepped, and swinging!");
+              const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
+            } else {
+              isPrepped = true;
+              battleLog.push(player_Name + " used " + action_name + "! Hammer prepped!");
+              currentStatusEffectDuration = currentStatusEffect.statusDuration;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            }
           }
         } else {
           if (!action_hitDefense && enemy_defense > 0 && (currentStatusEffect.damage > 0 || currentStatusEffect.defenseDOWN > 0)) {
@@ -503,27 +734,184 @@ export const fightBattle = async (req, res) => {
             addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
         }
-      } //End of status effect register, start of damage register
+      } //End of status effect register, start of card ability register
+      // Start of card ability register
+      if (action_cardAbility !== "None") {
+        let getAbility = await getCardAbility(action_cardAbility, action_abilityLevel);
+        let cardAbility = getAbility[0];
+
+        if (cardAbility.abilityName === "ShieldBreaker") {
+          player_shieldBreaker = true;
+          shieldBreakerDamage += cardAbility.SBdamage;
+        }
+        if (cardAbility.abilityName === "Multi-Hit") {
+          let activeHit = true;
+          let hitCount = 0;
+          // Multi-Hit mechanic that allows a weapon to hit the same enemy multiple times if the chance hits. Weapon always attacks at least once
+          while (activeHit && hitCount < 5) {
+            // Rolls the re-hit chance. If true, proceed and deals additional damage. If false, end the hits
+            const rollMultiHit = Math.floor(Math.random() * 100) + 1;
+            let isMultiHit = cardAbility.MultiHit >= rollMultiHit;
+            hitCount += 1;
+
+            // Rolls the re-hit Critical chance. This is separate from the main hit's critical chance, as that could mean that one successful crit would apply to ALL the re-hits, doing obnoxious damage
+            const rollReHitCritical = Math.floor(Math.random() * 100) + 1;
+            let isReHitCritical = player_intelligence >= rollReHitCritical;
+
+            //each re-hit is essentially the same damage calculation as other weapons, stripped away other weapon abilities/effects
+            let player_damage;
+            player_damage = action_damage + playerPassive.damage;
+            // Berserk bonus damage. Goes before crit to allow for bigger hits/damage stacking
+            if (playerBerserk) {
+              player_damage = player_damage + berserkDamage;
+            }
+            if (isReHitCritical) {
+              player_damage *= 2;
+              // Reset intelligence to base after crit. Allows for stacking crit chance
+              player_intelligence = basePlayer_intelligence;
+            }
+            // Added !isReHitCritical so that crits ignore defense, even for weapons that can't hit defense
+            if ((!action_hitDefense && enemy_defense > 0) && !isReHitCritical) {
+              player_damage = 0;
+            }
+            // Checks if the enemy is flying and if the player's card can hit flying. Is not influenced by crits
+            if (!action_hitFlying && enemy_flying) {
+              player_damage = 0;
+            }
+            // Set piercing checks and enemy defense reduction at the end after damage multipliers.
+            // This is so that the final output damage can overcome enemy's defense if its high enough
+            // Also allows crits to ignore defense
+            if (player_pierce) {
+              player_pierce = false;
+            } else if (!isReHitCritical) {
+              player_damage -= enemy_defense;
+            }
+            if (player_damage <= 0 && isMultiHit) {
+              battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + ", Additional hit! But it did no damage!");
+            } else if (isMultiHit) {
+              enemy_health -= player_damage;
+              lifestealAmount += player_damage;
+              if (isReHitCritical) {
+                battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "! Additional hit! Critical hit! Damage dealt: " + player_damage);
+              } else {
+                battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "! Additional hit! Damage dealt: " + player_damage);
+              }
+            } else {
+              activeHit = false;
+            }
+          }
+        }
+        if (cardAbility.abilityName === "AreaEffect") {
+          // This guards against a specific scenario where prepping the Great Hammer triggers AOE damage
+          if (!(action_name === "Great Hammer" && !isSwinging)) {
+            // AOE damage effects adjacent enemies, which can be tracked using the new local copy system
+            let adjacent_target1 = targetEnemy.enemy_Id - 1;
+            let adjacent_target2 = targetEnemy.enemy_Id + 1;
+            let adjacent_enemy1 = getEnemies.find(enemy => enemy.enemy_Id === adjacent_target1);
+            let adjacent_enemy2 = getEnemies.find(enemy => enemy.enemy_Id === adjacent_target2);
+
+            // Code gets a lil messy here; essentially, we are running the same combat logic on separate enemies here, as while
+            // its a simple AOE damage effect, we need to ensure that killing them through this method will handle them gracefully
+            if (adjacent_enemy1 && adjacent_enemy1.health > 0) {
+              adjacent_enemy1.health -= cardAbility.AOEdamage;
+              if (adjacent_enemy1.health <= 0 && !adjacent_enemy1.undead) {
+                adjacent_enemy1.dead = true;
+                battleLog.push(adjacent_enemy1.enemyName + " has fainted!");
+                let deleteEnemy = await deleteActiveBattleEnemy(adjacent_enemy1.enemy_Id);
+              } else if (adjacent_enemy1.health <= 0 && adjacent_enemy1.undead) {
+                adjacent_enemy1.health = 0;
+                battleLog.push(adjacent_enemy1.enemyName + " has fainted...?");
+                addStatusEffect = await addStatus(adjacent_enemy1.enemy_Id, adjacent_enemy1.enemyName, "Revive", 0, 0, 0, 0, true, 3);
+              }
+              // Updates enemy stats in the getEnemies list
+              let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === adjacent_enemy1.enemy_Id);
+              updateEnemy.health = adjacent_enemy1.health;
+              updateEnemy.dead = adjacent_enemy1.dead;
+
+              // Remove dead enemies (if any), natural filter
+              getEnemies = getEnemies.filter(enemy => enemy.dead === false);
+            }
+            if (adjacent_enemy2 && adjacent_enemy2.health > 0) {
+              adjacent_enemy2.health -= cardAbility.AOEdamage;
+              if (adjacent_enemy2.health <= 0 && !adjacent_enemy2.undead) {
+                adjacent_enemy2.dead = true;
+                battleLog.push(adjacent_enemy2.enemyName + " has fainted!");
+                let deleteEnemy = await deleteActiveBattleEnemy(adjacent_enemy2.enemy_Id);
+              } else if (adjacent_enemy2.health <= 0 && adjacent_enemy2.undead) {
+                adjacent_enemy2.health = 0;
+                battleLog.push(adjacent_enemy2.enemyName + " has fainted...?");
+                addStatusEffect = await addStatus(adjacent_enemy2.enemy_Id, adjacent_enemy2.enemyName, "Revive", 0, 0, 0, 0, true, 3);
+              }
+              // Updates enemy stats in the getEnemies list
+              let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === adjacent_enemy2.enemy_Id);
+              updateEnemy.health = adjacent_enemy2.health;
+              updateEnemy.dead = adjacent_enemy2.dead;
+
+              // Remove dead enemies (if any), natural filter
+              getEnemies = getEnemies.filter(enemy => enemy.dead === false);
+            }
+          }
+        }
+        if (cardAbility.abilityName === "CritUP") {
+          const RErollCrit = Math.floor(Math.random() * 100) + 1;
+          RECritical = (player_intelligence + cardAbility.CritUP) >= RErollCrit;
+        }
+      }
       if (action_damage > 0) {
         let player_damage;
-        if (player_pierce) {
-          player_damage = action_damage + playerPassive.damage;
-          player_pierce = false;
+        if ((action_name === "Crossbow Shot" && !isFiring) || (action_name === "Great Hammer" && !isSwinging)) {
+          continue;
         } else {
-          player_damage = action_damage + playerPassive.damage - enemy_defense;
+          player_damage = action_damage + playerPassive.damage;
+          isFiring = false;
+          isSwinging = false;
         }
+        // Berserk bonus damage. Goes before crit to allow for bigger hits/damage stacking
+        if (playerBerserk) {
+          player_damage = player_damage + berserkDamage;
+        }
+        // Marked bonus damage. Goes before crit to allow for bigger hits/damage stacking
+        if (player_marked && action.action_name === "Slingshot") {
+          player_damage = player_damage + markedDamage;
+        }
+        // ShieldBreaker bonus damage. Goes before crit to allow for stacking. Only applies if the enemy has defense
+        if (player_shieldBreaker && enemy_defense > 0) {
+          player_damage = player_damage + shieldBreakerDamage;
+          // Reset ShieldBreaker after use so that other weapons can't leverage of it
+          player_shieldBreaker = false;
+          shieldBreakerDamage = 0;
+        }
+        if (isCritical || RECritical) {
+          player_damage *= 2;
+          // Reset intelligence to base after crit. Allows for stacking crit chance
+          player_intelligence = basePlayer_intelligence;
+        }
+        // Added !isCritical (and !RECritical) so that crits ignore defense, even for weapons that can't hit defense
+        if ((!action_hitDefense && enemy_defense > 0) && !isCritical && !RECritical) {
+          player_damage = 0;
+        }
+        // Checks if the enemy is flying and if the player's card can hit flying. Is not influenced by crits
         if (!action_hitFlying && enemy_flying) {
           player_damage = 0;
         }
-        if (!action_hitDefense && enemy_defense > 0) {
-          player_damage = 0;
+        // Set piercing checks and enemy defense reduction at the end after damage multipliers.
+        // This is so that the final output damage can overcome enemy's defense if its high enough
+        // Also allows crits to ignore defense
+        if (player_pierce) {
+          player_pierce = false;
+        } else if (!isCritical && !RECritical) {
+          player_damage -= enemy_defense;
         }
         if (player_damage <= 0) {
           battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + ", but it did no damage!");
         } else {
           enemy_health -= player_damage;
           lifestealAmount += player_damage;
-          battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "! Damage dealt: " + player_damage);
+          if (isCritical || RECritical) {
+            battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "! Critical hit! Damage dealt: " + player_damage);
+          } else {
+            battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "! Damage dealt: " + player_damage);
+          }
         }
       }
       if (action_heal > 0) { //End of damage register, start of healing register. Checks if the first card is a healing card. If it is, a custom reply can be used.
@@ -547,19 +935,26 @@ export const fightBattle = async (req, res) => {
         battleLog.push(player_Name + " healed 1 health from their passive");
       }
       // If enemy died in this process, announce it in battle log and remove them from the list (later on) and from the active battle table enemy (since the final update doesn't do this)
-      if (enemy_health <= 0) {
+      if (enemy_health <= 0 && !enemy_undead) {
+        targetEnemy.dead = true;
         battleLog.push(enemy_Name + " has fainted!");
         let deleteEnemy = await deleteActiveBattleEnemy(targetEnemy.enemy_Id);
+      } else if (enemy_health <= 0 && enemy_undead) {
+        enemy_health = 0;
+        battleLog.push(enemy_Name + " has fainted...?");
+        addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, "Revive", 0, 0, 0, 0, true, 3);
       }
       // Updates enemy stats in the getEnemies list
       let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === targetEnemy.enemy_Id);
       updateEnemy.health = enemy_health;
       updateEnemy.defense = enemy_defense;
+      updateEnemy.dead = targetEnemy.dead;
 
       // Remove dead enemies (if any), natural filter
-      getEnemies = getEnemies.filter(enemy => enemy.health > 0); // Remove dead enemies from the list
-
-    } else if (action.action_entity === "Enemy" && !matchResolved && !isDodged) { //Enemy's combat math and logic calculator
+      getEnemies = getEnemies.filter(enemy => enemy.dead === false); // Remove dead enemies from the list. Undead enemies are not marked as 'dead'
+      //#endregion
+      //#region Enemy's combat math and logic calculator
+    } else if (action.action_entity === "Enemy" && !matchResolved && !isDodged && currentEnemy.health > 0) {
       let enemy_Name = currentEnemy.enemyName;
       let enemy_health = currentEnemy.health;
       let enemy_defense = currentEnemy.defense;
@@ -608,6 +1003,38 @@ export const fightBattle = async (req, res) => {
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
             addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
+          if (currentStatusEffect.statusName === "Poison") {
+            if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
+              battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
+            } else {
+              checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+              if (checkStatusEffect.length > 0) {
+                battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
+                updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+              } else {
+                player_health -= 1;
+                battleLog.push(enemy_Name + " used " + action_name + "!")
+                currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+                addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+              }
+            }
+          }
+          if (currentStatusEffect.statusName === "Curse") {
+            if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
+              battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
+            } else {
+              checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+              if (checkStatusEffect.length > 0) {
+                battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
+                updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+              } else {
+                player_cursed = true;
+                battleLog.push(enemy_Name + " used " + action_name + "!")
+                currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+                addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+              }
+            }
+          }
         } else {
           if ((!action_hitDefense && player_defense > 0 && (currentStatusEffect.damage > 0 || currentStatusEffect.defenseDOWN > 0)) || player_cleanse) {
             battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
@@ -626,6 +1053,13 @@ export const fightBattle = async (req, res) => {
           }
         }
       }
+      // Enemy move Abilities; This is a draft for a single ability, more will come in the future!
+      if (action_enemyMoveAbility !== "None") {
+        if (action_enemyMoveAbility === "CritHit") {
+          const rollEnemyCrit = Math.floor(Math.random() * 100) + 1;
+          isEnemyCritical = 50 >= rollEnemyCrit;
+        }
+      }
       if (action_damage > 0) { //Checks if the enemyMove is a damaging move. If it is, a custom reply can be used.
         let enemy_damage;
         if (enemy_pierce) {
@@ -633,7 +1067,10 @@ export const fightBattle = async (req, res) => {
         } else {
           enemy_damage = action_damage - player_defense;
         }
-        if (!action_hitDefense && player_defense > 0) {
+        if (isEnemyCritical) {
+          enemy_damage *= 2;
+        }
+        if (!action_hitDefense && player_defense > 0 && !isEnemyCritical) {
           enemy_damage = 0;
         }
         if (enemy_damage <= 0) {
@@ -662,6 +1099,7 @@ export const fightBattle = async (req, res) => {
       updateEnemy.health = enemy_health;
       updateEnemy.defense = enemy_defense;
     }
+    //#endregion
     /** Player resolution - If the attacks caused the player to die, call for battle resolution */
     if (player_health <= 0 && !matchResolved) {
       player_health = 0;
@@ -669,7 +1107,14 @@ export const fightBattle = async (req, res) => {
       resolutionLog.push(player_Name + " has fainted! The enemies have won the battle!");
     }
     // Enemy resolution - If ALL the enemies in battle are defeated, call for battle resolution
-    if (getEnemies.length == 0 && !matchResolved) {
+    let enemyCount = 0;
+    for (let index = 0; index < getEnemies.length; index++) {
+      const enemy = getEnemies[index];
+      if (enemy.health <= 0) {
+        enemyCount++;
+      }
+    }
+    if (enemyCount === getEnemies.length && !matchResolved) {
       Victor = player_Name;
       matchResolved = true;
       resolutionLog.push("All enemies have been defeated! " + player_Name + " won the battle!");
@@ -683,12 +1128,18 @@ export const fightBattle = async (req, res) => {
       player_agility = 0;
     }
   } //End of combat loop
-
+  //#endregion
+  //#region 3. Post Combat Logic and Battle Summary
   //Additional combat logic here
   // For Steadfast passive:
   player_agility += playerPassive.agilityRegen;
   if (player_agility > 100) {
     player_agility = 100;
+  }
+  // For Astute passive:
+  player_intelligence += playerPassive.intelligenceRegen;
+  if (player_intelligence > 100) {
+    player_intelligence = 100;
   }
   // Lifesteal healing
   if (player_lifesteal) {
@@ -701,18 +1152,20 @@ export const fightBattle = async (req, res) => {
   // Enemy healing from Exalted Mage
   if (enemy_healAll) {
     for (let index = 0; index < getEnemies.length; index++) {
-      let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
-      let baseEnemyStats = getBaseEnemyStats[0];
-      let baseEnemy_health = baseEnemyStats.health;
+      if (getEnemies[index].health > 0) {
+        let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
+        let baseEnemyStats = getBaseEnemyStats[0];
+        let baseEnemy_health = baseEnemyStats.health;
 
-      getEnemies[index].health += 3;
-      if (getEnemies[index].health > baseEnemy_health) {
-        getEnemies[index].health = baseEnemy_health;
+        getEnemies[index].health += 3;
+        if (getEnemies[index].health > baseEnemy_health) {
+          getEnemies[index].health = baseEnemy_health;
+        }
       }
     }
   }
   /** Presents the final stats of the player once combat math has been completed. Will display even after match resolution */
-  let statusSummary = await getStatusByEntity(player_Name);
+  let statusSummary = await getStatusByPlayer(player_Name);
 
   for (let index = 0; index < statusSummary.length; index++) {
     const element = statusSummary[index];
@@ -727,6 +1180,7 @@ export const fightBattle = async (req, res) => {
     const enemy_health = enemy.health;
     const enemy_defense = enemy.defense;
     const enemy_flying = enemy.flying;
+    const enemy_undead = enemy.undead;
     const enemy_speedy = enemy.speedy;
 
     let statusLog = [];
@@ -737,6 +1191,7 @@ export const fightBattle = async (req, res) => {
       "health": enemy_health,
       "defense": enemy_defense,
       "flying?": enemy_flying,
+      "undead?": enemy_undead,
       "speedy?": enemy_speedy
     })
     statusSummary = await getStatusByEnemy(enemy.enemy_Id);
@@ -753,6 +1208,8 @@ export const fightBattle = async (req, res) => {
     player_health,
     player_defense,
     player_agility,
+    player_intelligence,
+    turnCounter,
     matchResolved
   );
   // Write the mutated Enemy stats and turn index into the Active Battle Table Enemy
@@ -762,7 +1219,8 @@ export const fightBattle = async (req, res) => {
       enemy.enemy_Id,
       enemy.health,
       enemy.defense,
-      enemy.current_turn_index
+      enemy.current_turn_index,
+      enemy.dead
     );
   }
   // Update user's table by increasing levelProgress by 1 if the player won or set back to 1 if the player lost
@@ -781,8 +1239,8 @@ export const fightBattle = async (req, res) => {
     let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
     let clearStatusTracker = await resetStatusTracker();
   } else if (matchResolved && Victor !== player_Name) {
-    resolutionLog.push("Better luck next time! Level progress set back to 1")
-    let updateUserLevelProgress = await updateLevelProgress(player_Name, 1);
+    resolutionLog.push("Better luck next time!")
+    let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel);
 
     let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
     let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
@@ -795,10 +1253,13 @@ export const fightBattle = async (req, res) => {
     "playerName": player_Name,
     "health": player_health,
     "defense": player_defense,
-    "agility": player_agility
+    "agility": player_agility,
+    "intelligence": player_intelligence
   });
   replyList.push(playerStatusesLog);
   replyList.push(enemyLog);
 
   return res.status(200).json(replyList)
+  //#endregion
+  //#endregion
 }
