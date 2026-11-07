@@ -343,18 +343,15 @@ export const getStatusByNameAndEnemy = async (enemy_id, statusName) => {
   return getRecord;
 }
 /** Adds active statuses to the active status tracker */
-export const addStatus = async (enemy_id, entityInflicted, statusName, damage, heal, defenseUP, defenseDOWN, dynamicStatus, statusDuration) => {
+export const addStatus = async (enemy_id, entityInflicted, statusName, playerPositive, enemyPositive, statusDuration) => {
   const newRecord = await db
     .insert(activeStatusesTracker)
     .values({
       entityInflicted: entityInflicted,
       enemy_Id: enemy_id,
       statusName: statusName,
-      damage: damage,
-      heal: heal,
-      defenseUP: defenseUP,
-      defenseDOWN: defenseDOWN,
-      dynamicStatus: dynamicStatus,
+      playerPositive: playerPositive,
+      enemyPositive: enemyPositive,
       statusDuration: statusDuration
     })
     .returning();

@@ -1,6 +1,36 @@
 # Changelog
 All version updates and their associated changes are listed here (Versions are usually done per commit). Arranged from latest to oldest updates. Changes are either listed as `Added`, `Removed`, `Fixed`, or `Changed`. Versions are listed in this format x.y.z, where x is for major game changes/overhauls, y is for minor version upgrades and z is for small fixes/tweaks to a version.
 
+## Version 1.2.1 - Statuses and Witches
+### General Status Mechanics
+- `Changed`: Changed how the server processes status effects. Now, all statuses are handled on their own by the server, removing the need for a 'general handling'. To be clear, now in `battlesController.js`, status effects are no longer classed by `dynamicStatus`, they are instead uniquely handled by what they are (e.g if (statusName === ...)...)
+
+- `Removed`: Removed the stat fields and dynamicStatus flag for statusEffectDatabase as a follow-up to the prior change. These fields are no longer used, as seen in newer status effects. To be specific, `damage`, `heal`, `defenseUP`, `defenseDOWN` and `dynamicStatus` are removed from the statusEffectDatabase as well as the activeStatusEffectTracker (for battles). This makes handling statuses cleaner
+
+- `Changed`: Changed single-turn status effects to not be reflected into the activeStatusTracker upon use (such as stat boost cards like 'Smart Tactics' that gives intelligence stat points). While they are statuses, they are only meant to have effect for that turn of use, and will disappear the next turn. This leaves statuses that take effect over several turns to be reflected into the activeStatusTracker, and hence onto the frontend which clutters the UI cards less.
+
+### Specific Status Mechanics
+- `Changed`: Reworked 'Cast Recovery' to the new status effect system. Using 'Cast Recovery' while 'Regeneration' is still active on the player will cause the active status duration to be extended by 1 turn (much like other status effects)
+
+- `Changed`: Reworked 'Shield Dissolve' to the new status effect system. Using 'Shield Dissolve' while 'DefenseDOWNLvl3' is still active on an enemy will cause the active status duration to be extended by 1 turn instead
+
+- `Changed`: Reworked 'Brace' to the new status effect system. Using **2** copies of 'Brace' in a single turn will simply heal 5 health points for that turn (no status duration increase because its meant to be a one-off ability). 'Brace' is also NOT affected by 'Curse' to give it an edge over 'Be Immaterial' and since it is *technically* not a status effect
+
+- `Changed`: Reworked 'Be Immaterial' to the new status effect system. Using **2** copies of 'Be Immaterial' in a single turn will apply the 'Invulnerable' effect on the player whilst extending its duration by 1 turn. The activation mechanic remains, this simply prevents activating 'Be Immaterial's invulnerability in the same turn (as its meant to be activated only after the current turn, a big difference from Brace). Also affected by 'Curse' (since it is a status effect)
+
+- `Changed`: Changed how 'Exalted Mage' heals all its allies. No longer uses a status effect to do so, instead it uses the newly made 'enemyMoveAbility' system which dictates that it can affect other enemies
+
+### New Content and Game Changes
+- `Added`: Added a new enemy, 'Forsaken Witch'! Banished from her village for practicing witchcraft, 'Forsaken Witch' unleashes her wrath onto you! Casts 'Spellproof' to protect her allies from status ailments, and 'Poison's you! Also 'Undead' cause why not
+
+- `Added`: New 'Spellproof' mechanic. Enemies can inflict themselves with 'Spellproof' that makes them immune to negative status effects casted by the player! Currently only blocks the 2 negative status effects that can be applied to an enemy, that is 'Shield Dissolve' and 'Marked (effect)' from 'Slingshot'. More to come!
+
+- `Changed`: Removed 'Goblin Brute' from 'Dragons Den', replaced with 'Goblin'
+
+- `Changed`: Removed one 'Mushroom Moore' from 'Fungi Feugal', replaced with the new enemy 'Forsaken Witch'. Makes playing that level...interesting :)
+
+- `Changed`: Removed 'Gilded Assasin' from 'Throne Room', replaced with 'Goblin Brute' to make that level vastly easier (as it was frankly unplayable LMAO). 'Goblin Brute' reduces damage output from the enemy's side while still being a big enough nuisance to the player (This is also accounting for the hidden buff that 'Throne Room' got due to 'Skeleton Warrior' being able to revive)
+
 ## Version 1.2 - Game Content Update
 Major Game Content Update meant to bring new life to this game by introducing new mechanics and combat features, new cards and passives, revitalizing older game content, new enemy designs, levels, and lore! Meant to be a stepping stone to the next major game update
 ### New Features
@@ -74,13 +104,13 @@ Major Game Content Update meant to bring new life to this game by introducing ne
 - `Fixed`: Fixed an error where the README contains duplicate information, such as repeating whole paragraphs. This may have been caused by a merging error on my end
 
 ## Version 1.1.2 - Combat Engine Rework
-- `Changed`: Reworked the Combat engine (in battlesController.js) to use a local 'snapshot' of the enemy's activeBattleTable, rather than performing frequent database I/O requests. Slightly improves combat processing. Main reason was to have an easier time tracking alive enemies during combat for future 'AOE' moves
+- `Changed`: Reworked the Combat engine (in `battlesController.js`) to use a local 'snapshot' of the enemy's activeBattleTable, rather than performing frequent database I/O requests. Slightly improves combat processing. Main reason was to have an easier time tracking alive enemies during combat for future 'AOE' moves
 
-- `Removed`: Auditted battlesController.js to remove old commented out code to make it look cleaner/easier to read
+- `Removed`: Auditted `battlesController.js` to remove old commented out code to make it look cleaner/easier to read
 
 - `Removed`: Removed the try-catch code lines in battlesController.js for fightBattle function (previously commented out). Change made to make it easier to debug the combat engine
 
-- `Added`: Added .gitignore to project root because I added a TODO.md for my personal use
+- `Added`: Added `.gitignore` to project root because I added a `TODO.md` for my personal use
 
 Small write-up: In the next version patch, I will be adding new content to the game. This will include some new, experimental features that may require combat engine code rewrites (like this patch). I plan to simueltaneously audit the combat engine once more to make it more efficient/clean. Combat engine code will always be changing in future patches
 

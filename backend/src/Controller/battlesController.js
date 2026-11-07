@@ -302,6 +302,7 @@ export const fightBattle = async (req, res) => {
   let currentStatusEffectDuration;
   let addStatusEffect;
   let checkStatusEffect;
+  let checkSpellproof;
   let updateStatusEffect;
   // Variables holding flags for certain abilities
   let player_pierce = false;
@@ -354,8 +355,7 @@ export const fightBattle = async (req, res) => {
         player_health += 10; // Healing to offset loosing a turn
         battleLog.push(player_Name + " healed 10 health from using Brace!");
         battleLog.push(player_Name + " is exhausted from using Brace! They've skipped their turn!");
-        let newDuration = element.statusDuration - 1;
-        const statusUpdate = await updateStatuses(element.id, newDuration);
+        const removeStatusEffect = await deleteStatus(element.id);
       }
       if (element.statusName === "Invulnerable") {
         player_invulnerable = true;
@@ -363,20 +363,20 @@ export const fightBattle = async (req, res) => {
         const statusUpdate = await updateStatuses(element.id, newDuration);
       }
       if (element.statusName === "Burn") {
-        player_health -= element.damage;
-        battleLog.push(player_Name + " took " + element.damage + " Burn damage!");
+        player_health -= 2;
+        battleLog.push(player_Name + " took " + 2 + " Burn damage!");
         let newDuration = element.statusDuration - 1;
         const statusUpdate = await updateStatuses(element.id, newDuration);
       }
       if (element.statusName === "Poison") {
-        player_health -= element.damage;
-        battleLog.push(player_Name + " took " + element.damage + " Poison damage!");
+        player_health -= 1;
+        battleLog.push(player_Name + " took " + 1 + " Poison damage!");
         let newDuration = element.statusDuration - 1;
         const statusUpdate = await updateStatuses(element.id, newDuration);
       }
       if (element.statusName === "Regenerate") {
-        player_health += element.heal;
-        battleLog.push(player_Name + " healed " + element.heal + " from regeneration!");
+        player_health += 3;
+        battleLog.push(player_Name + " healed " + 3 + " from regeneration!");
         if (player_health > basePlayer_health) {
           player_health = basePlayer_health;
         }
@@ -458,7 +458,7 @@ export const fightBattle = async (req, res) => {
         const removeStatusEffect = await deleteStatus(element.id);
       } else {
         if (element.statusName === "DefenseDOWNLvl3") {
-          getEnemies[index].defense -= element.defenseDOWN;
+          getEnemies[index].defense -= 3;
           if (getEnemies[index].defense < 0) {
             getEnemies[index].defense = 0;
           }
@@ -466,6 +466,10 @@ export const fightBattle = async (req, res) => {
           const statusUpdate = await updateStatuses(element.id, newDuration);
         }
         if (element.statusName === "Revive") {
+          let newDuration = element.statusDuration - 1;
+          const statusUpdate = await updateStatuses(element.id, newDuration);
+        }
+        if (element.statusName === "Spellproof") {
           let newDuration = element.statusDuration - 1;
           const statusUpdate = await updateStatuses(element.id, newDuration);
         }
@@ -543,6 +547,7 @@ export const fightBattle = async (req, res) => {
     }
     //#region Player's combat math and logic calculator. Skipped if player is stunned
     if (action.action_entity === "Player" && !matchResolved && !player_stunned) {
+      // target enemy variables
       let enemy_Name = targetEnemy.enemyName;
       let enemy_health = targetEnemy.health;
       let enemy_defense = targetEnemy.defense;
@@ -559,179 +564,222 @@ export const fightBattle = async (req, res) => {
         currentStatusEffect = await getStatusEffect(action_statusEffectInflicted);
         currentStatusEffect = currentStatusEffect[0];
 
-        if (currentStatusEffect.dynamicStatus) {
-          if (currentStatusEffect.statusName === "Invincible" && !player_cursed) {
+        if (currentStatusEffect.statusName === "Invincible") {
+          checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+          if (checkStatusEffect.length > 0) {
+            player_health += 5;
+            if (player_health > basePlayer_health) {
+              player_health = basePlayer_health;
+            }
+            battleLog.push(player_Name + " used " + action_name + "! Recovered 5 health points!");
+          } else {
             player_defense = 999;
             battleLog.push(player_Name + " used Brace! " + player_Name + " is Invincible!") //Bracing is an exclusive ability, enemies can't use it
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "Invulnerable" && !player_cursed) {
-            battleLog.push(player_Name + " used Be Invulnerable! Use again next turn to activate!");
+        }
+        if (currentStatusEffect.statusName === "Invulnerable" && !player_cursed) { // Affected by Curse to balance it against Brace
+          checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else if (checkStatusEffect.length > 0 && !player_invulnerable) {
+            // If the player uses 2 copies in one turn (as noted by the fact that !player_invulnerable), dont activate the invulnerability, extend the effect instead
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else if (player_invulnerable) {
+            // Here, the status is already active on the player, and a turn has elapsed, so we allow the player to activate their invulnerability
+            player_defense = 999;
+            player_invulnerable = false; // We set it back to false so that if they, for some reason, use the card twice, it simply applies to status effect
+            battleLog.push(player_Name + " activated their Invulnerability! " + player_Name + " is immune to damage!")
+            const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
+          } else {
+            // In this scenario, there is no active effect, and a turn hasnt elapsed (since !player_invulnerable, or they just activated their invulnerability) so we apply the status as per normal
+            battleLog.push(player_Name + " used Be Immaterial! Use again next turn to activate!");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-            if (player_invulnerable) {
-              player_defense = 999;
-              battleLog.push(player_Name + " activated their Invulnerability! " + player_Name + " is immune to damage!")
-              const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
-            }
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "Pierce") { //Bypasses curse since it is just a weapon effect
-            player_pierce = true;
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-          }
-          if (currentStatusEffect.statusName === "Cleanse") {
-            player_cleanse = true;
-            //Iterate through the list of active statuses on the player that are negative and deletes them
-            for (let index = 0; index < allPlayerEffects.length; index++) {
-              let playerEffect = allPlayerEffects[index];
-              if (!playerEffect.playerPositive) {
-                let checkStatus = await getStatusByNameAndPlayer(player_Name, playerEffect.statusName)
-                // Separate check as it is possible that the statusEffect in allPlayerEffects has elapsed
-                if (checkStatus) {
-                  const removeStatusEffect = await deleteStatus(playerEffect.id);
-                }
+        }
+        if (currentStatusEffect.statusName === "Pierce") { // Bypasses curse since it is just a weapon effect...for now
+          player_pierce = true;
+        }
+        if (currentStatusEffect.statusName === "DefenseUPLvl1") { // Bypasses curse as this is a block ability
+          player_defense += 3;
+          battleLog.push(player_Name + " used " + action_name + "!");
+        }
+        if (currentStatusEffect.statusName === "Cleanse") { // Bypasses curse in order to cleanse it in the first place
+          player_cleanse = true;
+          //Iterate through the list of active statuses on the player that are negative and deletes them
+          for (let index = 0; index < allPlayerEffects.length; index++) {
+            let playerEffect = allPlayerEffects[index];
+            if (!playerEffect.playerPositive) {
+              let checkStatus = await getStatusByNameAndPlayer(player_Name, playerEffect.statusName)
+              // Separate check as it is possible that the statusEffect in allPlayerEffects has elapsed
+              if (checkStatus) {
+                const removeStatusEffect = await deleteStatus(playerEffect.id);
               }
             }
-            battleLog.push(player_Name + " used Fine Feeling!");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "Lifesteal" && !player_cursed) {
+          battleLog.push(player_Name + " used Fine Feeling!");
+          currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+          addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+        }
+        if (currentStatusEffect.statusName === "Lifesteal") {
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else {
             player_lifesteal = true;
             battleLog.push(player_Name + " used Lifesteal!");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "AgilityUP" && !player_cursed) {
+        }
+        if (currentStatusEffect.statusName === "AgilityUP") {
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else {
             player_agilityUP = true;
             player_agility += 10;
             if (player_agility > 100) {
               player_agility = 100;
             }
             battleLog.push(player_Name + " used Energize! Recovered 10 agility points");
+          }
+        }
+        if (currentStatusEffect.statusName === "Regenerate") {
+          checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else if (checkStatusEffect.length > 0) {
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else {
+            player_health += 3;
+            if (player_health > basePlayer_health) {
+              player_health = basePlayer_health;
+            }
+            battleLog.push(player_Name + " used Cast Recovery! Recovered 3 health points");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "RegenAgility" && !player_cursed) {
-            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
-            if (checkStatusEffect.length > 0) {
-              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
-              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
-            } else {
-              player_agility += 5;
-              if (player_agility > 100) {
-                player_agility = 100;
-              }
-              battleLog.push(player_Name + " used Be Vigilant! Recovered 5 agility points");
-              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+        }
+        if (currentStatusEffect.statusName === "RegenAgility") {
+          checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else if (checkStatusEffect.length > 0) {
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else {
+            player_agility += 5;
+            if (player_agility > 100) {
+              player_agility = 100;
             }
+            battleLog.push(player_Name + " used Be Vigilant! Recovered 5 agility points");
+            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "RegenIntel" && !player_cursed) {
-            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
-            if (checkStatusEffect.length > 0) {
-              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
-              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
-            } else {
-              player_intelligence += 5;
-              if (player_intelligence > 100) {
-                player_intelligence = 100;
-              }
-              battleLog.push(player_Name + " used Mind Games! Recovered 5 agility points");
-              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+        }
+        if (currentStatusEffect.statusName === "RegenIntel") {
+          checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else if (checkStatusEffect.length > 0) {
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else {
+            player_intelligence += 5;
+            if (player_intelligence > 100) {
+              player_intelligence = 100;
             }
+            battleLog.push(player_Name + " used Mind Games! Recovered 5 agility points");
+            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "IntelligenceUP" && !player_cursed) {
+        }
+        if (currentStatusEffect.statusName === "IntelligenceUP") {
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else {
             player_intelligence += 10;
             if (player_intelligence > 100) {
               player_intelligence = 100;
             }
             battleLog.push(player_Name + " used Smart Tactics! Gained 10 intelligence points");
+          }
+        }
+        if (currentStatusEffect.statusName === "BerserkLvl1") {
+          checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+          if (player_cursed) {
+            battleLog.push(player_Name + " tried to apply an effect on themselves, but failed!");
+          } else if (checkStatusEffect.length > 0) {
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else {
+            player_health -= 5; //If this somehow kills the player, an guard check at the end of this action will catch it anyways
+            berserkDamage += 1;
+            playerBerserk = true;
+            battleLog.push(player_Name + " used Angry Feeling!");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "BerserkLvl1" && !player_cursed) {
-            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
-            if (checkStatusEffect.length > 0) {
-              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
-              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
-            } else {
-              player_health -= 5; //If this somehow kills the player, an guard check at the end of this action will catch it anyways
-              berserkDamage += 1;
-              playerBerserk = true;
-              battleLog.push(player_Name + " used Angry Feeling!");
-              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-            }
+        }
+        if (currentStatusEffect.statusName === "Marked") {
+          checkStatusEffect = await getStatusByNameAndEnemy(targetEnemy.enemy_Id, currentStatusEffect.statusName);
+          checkSpellproof = await getStatusByNameAndEnemy(targetEnemy.enemy_Id, "Spellproof");
+          if (checkSpellproof.length > 0) {
+            battleLog.push(player_Name + " tried to apply a status effect on " + enemy_Name + ", but failed!");
+          } else if (checkStatusEffect.length > 0) {
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else {
+            player_marked = true;
+            markedDamage += 2;
+            battleLog.push(player_Name + " marked " + enemy_Name + ", who will take 2 extra damage from all attacks!");
+            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+            addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.statusName === "Marked" && !player_cursed) {
-            checkStatusEffect = await getStatusByNameAndEnemy(currentStatusEffect.statusName, targetEnemy.enemy_Id);
-            if (checkStatusEffect.length > 0) {
-              battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
-              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
-            } else {
-              player_marked = true;
-              markedDamage += 2;
-              battleLog.push(player_Name + " marked " + enemy_Name + ", who will take 2 extra damage from all attacks!");
-              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-              addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-            }
-          }
-          if (currentStatusEffect.statusName === "Loaded") {
-            if (isLoaded) {
-              isLoaded = false;
-              isFiring = true;
-              battleLog.push(player_Name + " used " + action_name + "! Crossbow loaded, and firing!");
-              const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
-            } else {
-              isLoaded = true;
-              battleLog.push(player_Name + " used " + action_name + "! Crossbow loaded!");
-              currentStatusEffectDuration = currentStatusEffect.statusDuration;
-              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-            }
-          }
-          if (currentStatusEffect.statusName === "Prepped") {
-            if (isPrepped) {
-              isPrepped = false;
-              isSwinging = true;
-              battleLog.push(player_Name + " used " + action_name + "! Hammer prepped, and swinging!");
-              const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
-            } else {
-              isPrepped = true;
-              battleLog.push(player_Name + " used " + action_name + "! Hammer prepped!");
-              currentStatusEffectDuration = currentStatusEffect.statusDuration;
-              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-            }
-          }
-        } else {
-          if (!action_hitDefense && enemy_defense > 0 && (currentStatusEffect.damage > 0 || currentStatusEffect.defenseDOWN > 0)) {
-            battleLog.push(player_Name + " tried to apply a status effect on " + enemy_Name + ", but failed!");;
-          } else if (currentStatusEffect.heal === 0 && currentStatusEffect.defenseUP === 0) {
-            enemy_health -= currentStatusEffect.damage;
-            enemy_defense -= currentStatusEffect.defenseDOWN;
+        }
+        if (currentStatusEffect.statusName === "DefenseDOWNLvl3") { // Not affected by curse, but spellproof instead
+          checkStatusEffect = await getStatusByNameAndEnemy(targetEnemy.enemy_Id, currentStatusEffect.statusName);
+          checkSpellproof = await getStatusByNameAndEnemy(targetEnemy.enemy_Id, "Spellproof");
+          if (checkSpellproof.length > 0) {
+            battleLog.push(player_Name + " tried to apply a status effect on " + enemy_Name + ", but failed!");
+          } else if (checkStatusEffect.length > 0) {
+            battleLog.push(player_Name + " used " + action_name + "! Increased duration of effect by 1 turn!");
+            updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+          } else {
+            enemy_defense -= 3;
             if (enemy_defense < 0) {
               enemy_defense = 0;
             }
-            battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "!");
+            battleLog.push(player_Name + " used " + action_name + " on " + enemy_Name + "! Reduced their defense!");
             currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
-          if (currentStatusEffect.heal > 0) {
-            player_health += currentStatusEffect.heal;
-            if (player_health > basePlayer_health) {
-              player_health = basePlayer_health;
-            }
-            battleLog.push(player_Name + " used " + action_name + "!");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-          } else if (currentStatusEffect.defenseUP > 0) {
-            player_defense += currentStatusEffect.defenseUP;
-            battleLog.push(player_Name + " used " + action_name + "!");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+        }
+        if (currentStatusEffect.statusName === "Loaded") { // Weapon actions, not statuses...I may let them be Cursed
+          if (isLoaded) {
+            isLoaded = false;
+            isFiring = true;
+            battleLog.push(player_Name + " used " + action_name + "! Crossbow loaded, and firing!");
+            const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
+          } else {
+            isLoaded = true;
+            battleLog.push(player_Name + " used " + action_name + "! Crossbow loaded!");
+            currentStatusEffectDuration = currentStatusEffect.statusDuration;
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+          }
+        }
+        if (currentStatusEffect.statusName === "Prepped") { // Weapon actions, not statuses...I may let them be Cursed
+          if (isPrepped) {
+            isPrepped = false;
+            isSwinging = true;
+            battleLog.push(player_Name + " used " + action_name + "! Hammer prepped, and swinging!");
+            const removeStatusEffect = await deleteStatusByName(currentStatusEffect.statusName);
+          } else {
+            isPrepped = true;
+            battleLog.push(player_Name + " used " + action_name + "! Hammer prepped!");
+            currentStatusEffectDuration = currentStatusEffect.statusDuration;
+            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
           }
         }
       } //End of status effect register, start of card ability register
@@ -821,7 +869,7 @@ export const fightBattle = async (req, res) => {
               } else if (adjacent_enemy1.health <= 0 && adjacent_enemy1.undead) {
                 adjacent_enemy1.health = 0;
                 battleLog.push(adjacent_enemy1.enemyName + " has fainted...?");
-                addStatusEffect = await addStatus(adjacent_enemy1.enemy_Id, adjacent_enemy1.enemyName, "Revive", 0, 0, 0, 0, true, 3);
+                addStatusEffect = await addStatus(adjacent_enemy1.enemy_Id, adjacent_enemy1.enemyName, "Revive", false, true, 3);
               }
               // Updates enemy stats in the getEnemies list
               let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === adjacent_enemy1.enemy_Id);
@@ -840,7 +888,7 @@ export const fightBattle = async (req, res) => {
               } else if (adjacent_enemy2.health <= 0 && adjacent_enemy2.undead) {
                 adjacent_enemy2.health = 0;
                 battleLog.push(adjacent_enemy2.enemyName + " has fainted...?");
-                addStatusEffect = await addStatus(adjacent_enemy2.enemy_Id, adjacent_enemy2.enemyName, "Revive", 0, 0, 0, 0, true, 3);
+                addStatusEffect = await addStatus(adjacent_enemy2.enemy_Id, adjacent_enemy2.enemyName, "Revive", false, true, 3);
               }
               // Updates enemy stats in the getEnemies list
               let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === adjacent_enemy2.enemy_Id);
@@ -942,7 +990,7 @@ export const fightBattle = async (req, res) => {
       } else if (enemy_health <= 0 && enemy_undead) {
         enemy_health = 0;
         battleLog.push(enemy_Name + " has fainted...?");
-        addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, "Revive", 0, 0, 0, 0, true, 3);
+        addStatusEffect = await addStatus(targetEnemy.enemy_Id, enemy_Name, "Revive", false, true, 3);
       }
       // Updates enemy stats in the getEnemies list
       let updateEnemy = getEnemies.find(enemy => enemy.enemy_Id === targetEnemy.enemy_Id);
@@ -970,86 +1018,87 @@ export const fightBattle = async (req, res) => {
       if (action_statusEffectInflicted !== "None") {
         currentStatusEffect = await getStatusEffect(action_statusEffectInflicted);
         currentStatusEffect = currentStatusEffect[0];
-        if (currentStatusEffect.dynamicStatus) {
-          if (currentStatusEffect.statusName === "preTKO") {
-            battleLog.push(enemy_Name + "'s blade quivers, " + enemy_Name + " seems to be preparing a POWERFUL attack...");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-          }
-          if (currentStatusEffect.statusName === "preTKO(K)") {
-            battleLog.push("The ground trembles, " + enemy_Name + " seems to be preparing a POWERFUL attack...");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-          }
-          if (currentStatusEffect.statusName === "Stun") {
-            if (player_cleanse) {
-              battleLog.push(enemy_Name + " tried to stun " + player_Name + ", but failed!");
+
+        if (currentStatusEffect.statusName === "preTKO") {
+          battleLog.push(enemy_Name + "'s blade quivers, " + enemy_Name + " seems to be preparing a POWERFUL attack...");
+        }
+        if (currentStatusEffect.statusName === "preTKO(K)") {
+          battleLog.push("The ground trembles, " + enemy_Name + " seems to be preparing a POWERFUL attack...");
+        }
+        if (currentStatusEffect.statusName === "Rest") {
+          enemy_defense = 0;
+          battleLog.push(enemy_Name + " is tired, and is taking a rest!");
+        }
+        if (currentStatusEffect.statusName === "DefenseUPLvl1") {
+          enemy_defense += 3;
+          battleLog.push(enemy_Name + " used " + action_name + "!");
+        }
+        if (currentStatusEffect.statusName === "Stun") {
+          if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
+            battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
+          } else {
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(enemy_Name + " used " + action_name + " on " + player_Name + ", but is already stunned!");
             } else {
               battleLog.push(enemy_Name + " stunned " + player_Name + ", " + player_Name + " can't move!")
               player_agility += 5; // Stun deals no damage, but increase agility anyway since it landed
               currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
             }
           }
-          if (currentStatusEffect.statusName === "Rest") {
-            enemy_defense = 0;
-            battleLog.push(enemy_Name + " is tired, and is taking a rest!");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-          }
-          if (currentStatusEffect.statusName === "HealAll") {
-            enemy_healAll = true;
-            battleLog.push(enemy_Name + " used Mending Spell! All enemies healed for 3 hp");
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-          }
-          if (currentStatusEffect.statusName === "Poison") {
-            if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
-              battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
-            } else {
-              checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
-              if (checkStatusEffect.length > 0) {
-                battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
-                updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
-              } else {
-                player_health -= 1;
-                battleLog.push(enemy_Name + " used " + action_name + "!")
-                currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-                addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-              }
-            }
-          }
-          if (currentStatusEffect.statusName === "Curse") {
-            if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
-              battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
-            } else {
-              checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
-              if (checkStatusEffect.length > 0) {
-                battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
-                updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
-              } else {
-                player_cursed = true;
-                battleLog.push(enemy_Name + " used " + action_name + "!")
-                currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-                addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
-              }
-            }
-          }
-        } else {
-          if ((!action_hitDefense && player_defense > 0 && (currentStatusEffect.damage > 0 || currentStatusEffect.defenseDOWN > 0)) || player_cleanse) {
+        }
+        if (currentStatusEffect.statusName === "Spellproof") {
+          battleLog.push(enemy_Name + " used " + action_name + "! Immune to player's effects!")
+          currentStatusEffectDuration = currentStatusEffect.statusDuration;
+          addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+        }
+        if (currentStatusEffect.statusName === "Poison") {
+          if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
             battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
-          } else if (currentStatusEffect.defenseUP > 0 || currentStatusEffect.heal > 0) {
-            battleLog.push(enemy_Name + " used " + action_name + "!");
-            enemy_health += currentStatusEffect.heal;
-            enemy_defense += currentStatusEffect.defenseUP;
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(currentEnemy.enemy_Id, enemy_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
           } else {
-            battleLog.push(enemy_Name + " used " + action_name + " on " + player_Name + "!");
-            player_health -= currentStatusEffect.damage;
-            player_defense -= currentStatusEffect.defenseDOWN;
-            currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
-            addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.damage, currentStatusEffect.heal, currentStatusEffect.defenseUP, currentStatusEffect.defenseDOWN, currentStatusEffect.dynamicStatus, currentStatusEffectDuration);
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_health -= 1;
+              battleLog.push(enemy_Name + " used " + action_name + "!")
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+            }
+          }
+        }
+        if (currentStatusEffect.statusName === "Burn") {
+          if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
+            battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
+          } else {
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_health -= 2;
+              battleLog.push(enemy_Name + " used " + action_name + "!")
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+            }
+          }
+        }
+        if (currentStatusEffect.statusName === "Curse") {
+          if (player_cleanse || (!action_hitDefense && player_defense > 0)) {
+            battleLog.push(enemy_Name + " tried to apply a status effect on " + player_Name + ", but failed!");
+          } else {
+            checkStatusEffect = await getStatusByNameAndPlayer(player_Name, currentStatusEffect.statusName);
+            if (checkStatusEffect.length > 0) {
+              battleLog.push(enemy_Name + " used " + action_name + "! Increased duration of effect!");
+              updateStatusEffect = await updateStatuses(checkStatusEffect[0].id, checkStatusEffect[0].statusDuration + 1);
+            } else {
+              player_cursed = true;
+              battleLog.push(enemy_Name + " used " + action_name + "!")
+              currentStatusEffectDuration = currentStatusEffect.statusDuration - 1;
+              addStatusEffect = await addStatus(10, player_Name, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+            }
           }
         }
       }
@@ -1058,6 +1107,29 @@ export const fightBattle = async (req, res) => {
         if (action_enemyMoveAbility === "CritHit") {
           const rollEnemyCrit = Math.floor(Math.random() * 100) + 1;
           isEnemyCritical = 50 >= rollEnemyCrit;
+        }
+        if (action_enemyMoveAbility === "AffectAll") {
+          battleLog.push(enemy_Name + " used " + action_name + "! Affected all enemies!");
+          // AffectAll provides the healing/defense boost/status effects to all enemies that this current enemy applies to itself (WIP)
+          for (let index = 0; index < getEnemies.length; index++) {
+            if (getEnemies[index].health > 0 && getEnemies[index].enemyName !== enemy_Name) {
+              let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
+              let baseEnemyStats = getBaseEnemyStats[0];
+              let baseEnemy_health = baseEnemyStats.health;
+
+              // Aoe Heals
+              getEnemies[index].health += action_heal;
+              if (getEnemies[index].health > baseEnemy_health) {
+                getEnemies[index].health = baseEnemy_health;
+              }
+              // Aoe Status effect application, for friendly buffs only (usually tied to them anyways)
+              if (currentStatusEffect.statusName !== "None") {
+                addStatusEffect = await addStatus(getEnemies[index].enemy_Id, getEnemies[index].enemyName, currentStatusEffect.statusName, currentStatusEffect.playerPositive, currentStatusEffect.enemyPositive, currentStatusEffectDuration);
+              }
+            }
+            //Inside the loop >_<
+          }
+          //Something outside for loop?
         }
       }
       if (action_damage > 0) { //Checks if the enemyMove is a damaging move. If it is, a custom reply can be used.
@@ -1119,7 +1191,7 @@ export const fightBattle = async (req, res) => {
       matchResolved = true;
       resolutionLog.push("All enemies have been defeated! " + player_Name + " won the battle!");
     }
-    // Checks if agility goes above 100 (from either play buffs or enemy influence)
+    // Addtitional Checks if agility goes above 100 (from either play buffs or enemy influence)
     if (player_agility > 100) {
       player_agility = 100;
     }
@@ -1127,10 +1199,34 @@ export const fightBattle = async (req, res) => {
     if (player_agility < 0) {
       player_agility = 0;
     }
+    // Additional checks if intelligence goes above 100
+    if (player_intelligence > 100) {
+      player_intelligence = 100;
+    }
+    // Lifesteal healing - moved into the loop so healing takes effect before enemy attacks
+    if (player_lifesteal && lifestealAmount > 0) {
+      player_health += lifestealAmount;
+      battleLog.push(player_Name + " healed " + lifestealAmount + " from Lifesteal!");
+      if (player_health > basePlayer_health) {
+        player_health = basePlayer_health;
+      }
+    }
   } //End of combat loop
   //#endregion
   //#region 3. Post Combat Logic and Battle Summary
   //Additional combat logic here
+  // Addtitional Checks if agility goes above 100 (from either play buffs or enemy influence)
+  if (player_agility > 100) {
+    player_agility = 100;
+  }
+  // Checks if agility goes below 0
+  if (player_agility < 0) {
+    player_agility = 0;
+  }
+  // Additional checks if intelligence goes above 100
+  if (player_intelligence > 100) {
+    player_intelligence = 100;
+  }
   // For Steadfast passive:
   player_agility += playerPassive.agilityRegen;
   if (player_agility > 100) {
@@ -1140,29 +1236,6 @@ export const fightBattle = async (req, res) => {
   player_intelligence += playerPassive.intelligenceRegen;
   if (player_intelligence > 100) {
     player_intelligence = 100;
-  }
-  // Lifesteal healing
-  if (player_lifesteal) {
-    player_health += lifestealAmount;
-    battleLog.push(player_Name + " healed " + lifestealAmount + " from Lifesteal!");
-    if (player_health > basePlayer_health) {
-      player_health = basePlayer_health;
-    }
-  }
-  // Enemy healing from Exalted Mage
-  if (enemy_healAll) {
-    for (let index = 0; index < getEnemies.length; index++) {
-      if (getEnemies[index].health > 0) {
-        let getBaseEnemyStats = await getEnemyStats(getEnemies[index].enemyName);
-        let baseEnemyStats = getBaseEnemyStats[0];
-        let baseEnemy_health = baseEnemyStats.health;
-
-        getEnemies[index].health += 3;
-        if (getEnemies[index].health > baseEnemy_health) {
-          getEnemies[index].health = baseEnemy_health;
-        }
-      }
-    }
   }
   /** Presents the final stats of the player once combat math has been completed. Will display even after match resolution */
   let statusSummary = await getStatusByPlayer(player_Name);
@@ -1224,7 +1297,7 @@ export const fightBattle = async (req, res) => {
     );
   }
   // Update user's table by increasing levelProgress by 1 if the player won or set back to 1 if the player lost
-  if (matchResolved && Victor === player_Name && currentLevel === 5) {
+  if (matchResolved && Victor === player_Name && currentLevel === 7) { // <-- Make sure to change this lmao
     resolutionLog.push("Congratulations! You defeated the King! Level progress set back to 1");
     let updateUserLevelProgress = await updateLevelProgress(player_Name, 1); // Allows for replayability
 

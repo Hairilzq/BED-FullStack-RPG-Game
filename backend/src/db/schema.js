@@ -96,11 +96,6 @@ export const statusEffectDatabase = sqliteTable('statusEffectDatabase', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   entityInflicted: text('entityInflicted').notNull(),
   statusName: text('statusName').notNull(),
-  damage: integer('damage').notNull(),
-  heal: integer('heal').notNull(),
-  defenseUP: integer('defenseUP').notNull(),
-  defenseDOWN: integer('defenseDOWN').notNull(),
-  dynamicStatus: boolean('dynamicStatus').notNull(),
   playerPositive: boolean('playerPositive?').notNull(),
   enemyPositive: boolean('enemyPositive?').notNull(),
   statusDuration: integer('statusDuration').notNull()
@@ -146,11 +141,8 @@ export const activeStatusesTracker = sqliteTable('activeStatusesTracker', {
   entityInflicted: text('entityInflicted').notNull(),
   enemy_Id: integer('enemy_Id').notNull(),
   statusName: text('statusName').notNull(),
-  damage: integer('damage').notNull(),
-  heal: integer('heal').notNull(),
-  defenseUP: integer('defenseUP').notNull(),
-  defenseDOWN: integer('defenseDOWN').notNull(),
-  dynamicStatus: boolean('dynamicStatus').notNull(),
+  playerPositive: boolean('playerPositive?').notNull(),
+  enemyPositive: boolean('enemyPositive?').notNull(),
   statusDuration: integer('statusDuration').notNull()
 })
 

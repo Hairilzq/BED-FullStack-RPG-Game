@@ -38,7 +38,8 @@ const enemyDatabase = [
   { enemyName: 'Mushroom Moore', health: 12, defense: 0, flying: false, undead: false, speedy: false, enemyDesc: 'Enchanted living Mushroom brought to life by the Witches of Varion, inflicts Curses upon you!' },
   { enemyName: 'Goblin Brute', health: 10, defense: 3, flying: false, undead: false, speedy: true, enemyDesc: 'The leader of the Goblin pack! Very durable, but takes rests sometimes. Time your attacks wisely!' },
   { enemyName: 'Skeleton Warrior', health: 15, defense: 0, flying: false, undead: true, speedy: true, enemyDesc: 'Former warrior, now reincarnated as a Skeleton Warrior! Attacks before you, and can use a Shield!' },
-  { enemyName: 'Exalted Mage', health: 10, defense: 5, flying: false, undead: false, speedy: true, enemyDesc: 'Freshly graduated from Varion School of Magic Arts, Exalted Mage is ready to assist his mates in battle! Provides healing to allies' },
+  { enemyName: 'Forsaken Witch', health: 15, defense: 0, flying: false, undead: true, speedy: false, enemyDesc: 'A cursed Witch that has been Forsakened by its village, unleashes its wrath before you! Can protect its allies from status ailments!' },
+  { enemyName: 'Exalted Mage', health: 10, defense: 5, flying: false, undead: false, speedy: false, enemyDesc: 'Freshly graduated from Varion School of Magic Arts, Exalted Mage is ready to assist his mates in battle! Provides healing to allies' },
   { enemyName: 'Redback Dragon', health: 25, defense: 0, flying: true, undead: false, speedy: false, enemyDesc: 'The mighty air defense of Kingdom Varion, the Redback Dragon guards the kingdom! Flies and can Burn you if youre not careful!' },
   { enemyName: 'Fungi Beast', health: 30, defense: 1, flying: false, undead: false, speedy: false, enemyDesc: 'A Giant hulking beast that roams the Fungi Feugal, it is not very kind to strangers! High health and powerful hits that have the chance be a Critical Hit!' },
   { enemyName: 'Gilded Assasin', health: 20, defense: 2, flying: false, undead: false, speedy: false, enemyDesc: 'A Gilded Assasin sent by the King himself to deal with you! His weapon, the Blood Blade, holds a fraction of the Blood Stone power!' },
@@ -103,8 +104,11 @@ const enemyMovesDatabase = [
   { enemyName: 'Mushroom Moore', moveName: 'Cap Bash', damage: 5, heal: 0, hitDefense: true, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'None', turn_index: 2 },
   { enemyName: 'Skeleton Warrior', moveName: 'Skeleton Slash', damage: 5, heal: 0, hitDefense: true, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'None', turn_index: 0 },
   { enemyName: 'Skeleton Warrior', moveName: 'Shield Raise', damage: 0, heal: 0, hitDefense: true, dodgeable: false, enemyMoveAbility: 'None', statusEffectInflicted: 'DefenseUPLvl1', turn_index: 1 },
-  { enemyName: 'Exalted Mage', moveName: 'Mending Spell', damage: 0, heal: 0, hitDefense: true, dodgeable: false, enemyMoveAbility: 'None', statusEffectInflicted: 'HealAll', turn_index: 1 },
-  { enemyName: 'Exalted Mage', moveName: 'Cast Fire', damage: 1, heal: 0, hitDefense: false, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'Burn', turn_index: 0 },
+  { enemyName: 'Forsaken Witch', moveName: 'Magic Blast', damage: 5, heal: 0, hitDefense: false, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'None', turn_index: 0 },
+  { enemyName: 'Forsaken Witch', moveName: 'Spell Immunity', damage: 0, heal: 0, hitDefense: true, dodgeable: false, enemyMoveAbility: 'AffectAll', statusEffectInflicted: 'Spellproof', turn_index: 1 },
+  { enemyName: 'Forsaken Witch', moveName: 'Evil Spirits', damage: 0, heal: 0, hitDefense: false, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'Poison', turn_index: 2 },
+  { enemyName: 'Exalted Mage', moveName: 'Mending Spell', damage: 0, heal: 3, hitDefense: true, dodgeable: false, enemyMoveAbility: 'AffectAll', statusEffectInflicted: 'None', turn_index: 1 },
+  { enemyName: 'Exalted Mage', moveName: 'Cast Fire', damage: 0, heal: 0, hitDefense: false, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'Burn', turn_index: 0 },
   { enemyName: 'Exalted Mage', moveName: 'Rest', damage: 0, heal: 0, hitDefense: true, dodgeable: false, enemyMoveAbility: 'None', statusEffectInflicted: 'Rest', turn_index: 2 },
   { enemyName: 'Redback Dragon', moveName: 'Fireball', damage: 3, heal: 0, hitDefense: false, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'Burn', turn_index: 0 },
   { enemyName: 'Redback Dragon', moveName: 'Swoop', damage: 5, heal: 0, hitDefense: true, dodgeable: true, enemyMoveAbility: 'None', statusEffectInflicted: 'None', turn_index: 1 },
@@ -150,30 +154,30 @@ const samplePlayerLoadout = [
 
 /** Status database - known status effects and their stats/combat logic */
 const statusDatabase = [
-  { entityInflicted: 'None', statusName: 'Rest', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: true, statusDuration: 1 }, //Enemy Exclusive, Enemy -> Enemy
-  { entityInflicted: 'None', statusName: 'DefenseUPLvl1', damage: 0, heal: 0, defenseUP: 3, defenseDOWN: 0, dynamicStatus: false, playerPositive: true, enemyPositive: true, statusDuration: 1 }, //Both Entities
-  { entityInflicted: 'None', statusName: 'Pierce', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: true, statusDuration: 1 }, //Both Entities
-  { entityInflicted: 'None', statusName: 'Invincible', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 2 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'Burn', damage: 2, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: false, playerPositive: false, enemyPositive: false, statusDuration: 3 }, //Both Entities
-  { entityInflicted: 'None', statusName: 'Poison', damage: 1, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: false, enemyPositive: true, statusDuration: 5 }, //Enemy Exclusive, Enemy -> Player
-  { entityInflicted: 'None', statusName: 'Curse', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: false, enemyPositive: true, statusDuration: 3 }, //Enemy Exclusive, Enemy -> Player
-  { entityInflicted: 'None', statusName: 'preTKO', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: false, enemyPositive: true, statusDuration: 1 }, //Enemy Exclusive, Enemy -> Enemy
-  { entityInflicted: 'None', statusName: 'DefenseDOWNLvl3', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 3, dynamicStatus: false, playerPositive: false, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Enemy
-  { entityInflicted: 'None', statusName: 'Stun', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: false, enemyPositive: false, statusDuration: 2 }, //Both Entities
-  { entityInflicted: 'None', statusName: 'preTKO(K)', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: false, enemyPositive: true, statusDuration: 1 }, //Enemy Exclusive, Enemy -> Enemy
-  { entityInflicted: 'None', statusName: 'Cleanse', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 1 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'Regenerate', damage: 0, heal: 3, defenseUP: 0, defenseDOWN: 0, dynamicStatus: false, playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'Lifesteal', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 1 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'Invulnerable', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'AgilityUP', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 1 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'RegenAgility', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 4 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'IntelligenceUP', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 1 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'HealAll', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: false, enemyPositive: true, statusDuration: 1 }, //Enemy Exclusive, Enemy -> Enemy
-  { entityInflicted: 'None', statusName: 'BerserkLvl1', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'RegenIntel', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: true, statusDuration: 3 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'Marked', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Enemy
-  { entityInflicted: 'None', statusName: 'Loaded', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
-  { entityInflicted: 'None', statusName: 'Prepped', damage: 0, heal: 0, defenseUP: 0, defenseDOWN: 0, dynamicStatus: true, playerPositive: true, enemyPositive: false, statusDuration: 3 } //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Rest', playerPositive: true, enemyPositive: true, statusDuration: 0 }, //Enemy Exclusive, Enemy -> Enemy
+  { entityInflicted: 'None', statusName: 'DefenseUPLvl1', playerPositive: true, enemyPositive: true, statusDuration: 0 }, //Both Entities
+  { entityInflicted: 'None', statusName: 'Pierce', playerPositive: true, enemyPositive: true, statusDuration: 0 }, //Both Entities
+  { entityInflicted: 'None', statusName: 'Invincible', playerPositive: true, enemyPositive: false, statusDuration: 2 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Burn', playerPositive: false, enemyPositive: false, statusDuration: 3 }, //Both Entities
+  { entityInflicted: 'None', statusName: 'Poison', playerPositive: false, enemyPositive: true, statusDuration: 5 }, //Enemy Exclusive, Enemy -> Player
+  { entityInflicted: 'None', statusName: 'Curse', playerPositive: false, enemyPositive: true, statusDuration: 3 }, //Enemy Exclusive, Enemy -> Player
+  { entityInflicted: 'None', statusName: 'preTKO', playerPositive: false, enemyPositive: true, statusDuration: 0 }, //Enemy Exclusive, Enemy -> Enemy
+  { entityInflicted: 'None', statusName: 'DefenseDOWNLvl3', playerPositive: false, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Enemy
+  { entityInflicted: 'None', statusName: 'Stun', playerPositive: false, enemyPositive: false, statusDuration: 2 }, //Both Entities
+  { entityInflicted: 'None', statusName: 'preTKO(K)', playerPositive: false, enemyPositive: true, statusDuration: 0 }, //Enemy Exclusive, Enemy -> Enemy
+  { entityInflicted: 'None', statusName: 'Cleanse', playerPositive: true, enemyPositive: false, statusDuration: 1 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Regenerate', playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Lifesteal', playerPositive: true, enemyPositive: false, statusDuration: 0 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Invulnerable', playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'AgilityUP', playerPositive: true, enemyPositive: false, statusDuration: 0 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'RegenAgility', playerPositive: true, enemyPositive: false, statusDuration: 4 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'IntelligenceUP', playerPositive: true, enemyPositive: false, statusDuration: 0 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'BerserkLvl1', playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'RegenIntel', playerPositive: true, enemyPositive: true, statusDuration: 3 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Marked', playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Enemy
+  { entityInflicted: 'None', statusName: 'Loaded', playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Prepped', playerPositive: true, enemyPositive: false, statusDuration: 3 }, //Player Exclusive, Player -> Player
+  { entityInflicted: 'None', statusName: 'Spellproof', playerPositive: false, enemyPositive: true, statusDuration: 3 }
 ]
 
 // levelTemplate - Stores each level data here
@@ -181,10 +185,10 @@ const levelTemplate = [
   { levelName: 'Goblin Hideout', enemyName_1: 'Goblin Brute', enemyName_2: 'Goblin Brute', enemyName_3: 'Goblin', enemyName_4: 'Goblin', levelDesc: 'Youve accidentally ventured into a Goblin Hideout! Defend yourself or have all your gear robbed!' },
   { levelName: 'Twilight Forest', enemyName_1: 'Goblin', enemyName_2: 'Wishful Moth', enemyName_3: 'Wishful Moth', enemyName_4: 'Mushroom Moore', levelDesc: 'The green and lushes Twilight Forest calls to you, leading you down the path to the King. The forest isnt safe though, now you must fend off these native pests!' },
   { levelName: 'Undead Crypt', enemyName_1: 'Skeleton Warrior', enemyName_2: 'Skeleton Warrior', enemyName_3: 'Goblin', enemyName_4: 'Wishful Moth', levelDesc: 'A journey through the Kingdom Graveyard has you stumbling upon an Undead Crypt! Put down these Undead Warriors once more!' },
-  { levelName: 'Fungi Feugal', enemyName_1: 'Goblin', enemyName_2: 'Mushroom Moore', enemyName_3: 'Mushroom Moore', enemyName_4: 'Fungi Beast', levelDesc: 'Taking a shortcut to the Kingdom Castle, you pass through a Fungi Farm. Blocking your way is a boulder...nevermind, a Fungi Beast!' },
-  { levelName: 'Dragons Den', enemyName_1: 'Goblin Brute', enemyName_2: 'Skeleton Warrior', enemyName_3: 'Skeleton Warrior', enemyName_4: 'Redback Dragon', levelDesc: 'Attempting to find a way through the castle walls, you encounter a Dragon Den! You found your ride over the walls!' },
+  { levelName: 'Fungi Feugal', enemyName_1: 'Goblin', enemyName_2: 'Mushroom Moore', enemyName_3: 'Forsaken Witch', enemyName_4: 'Fungi Beast', levelDesc: 'Taking a shortcut to the Kingdom Castle, you pass through a Fungi Farm. Blocking your way is a boulder...nevermind, a Fungi Beast!' },
+  { levelName: 'Dragons Den', enemyName_1: 'Goblin', enemyName_2: 'Skeleton Warrior', enemyName_3: 'Skeleton Warrior', enemyName_4: 'Redback Dragon', levelDesc: 'Attempting to find a way through the castle walls, you encounter a Dragon Den! You found your ride over the walls!' },
   { levelName: 'Castle Courtyard', enemyName_1: 'Skeleton Warrior', enemyName_2: 'Mushroom Moore', enemyName_3: 'Gilded Assasin', enemyName_4: 'Redback Dragon', levelDesc: 'Landing right into the Castle Courtyard, the Redback Dragon has you where he wanted, right infront of the Gilded Assasin!' },
-  { levelName: 'Throne Room', enemyName_1: 'Skeleton Warrior', enemyName_2: 'Gilded Assasin', enemyName_3: 'King Varion Shaw', enemyName_4: 'Exalted Mage', levelDesc: 'The end is here, the end is now! Fight the King, claim the Bloodstone, or fall and meet your fate!' }
+  { levelName: 'Throne Room', enemyName_1: 'Skeleton Warrior', enemyName_2: 'Goblin Brute', enemyName_3: 'King Varion Shaw', enemyName_4: 'Exalted Mage', levelDesc: 'The end is here, the end is now! Fight the King, claim the Bloodstone, or fall and meet your fate!' }
 ]
 
 // --- Seed function ---
