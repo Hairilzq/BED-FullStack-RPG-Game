@@ -1,6 +1,88 @@
 # Changelog
 All version updates and their associated changes are listed here (Versions are usually done per commit). Arranged from latest to oldest updates. Changes are either listed as `Added`, `Removed`, `Fixed`, or `Changed`. Versions are listed in this format x.y.z, where x is for major game changes/overhauls, y is for minor version upgrades and z is for small fixes/tweaks to a version.
 
+## Version 2.0 - Adventurous New Interface and Player Profiles
+Major Game UI overhaul, completely revitalizing the style and feel of the game. New style and vibe, animated buttons and displays, cleaner displays, new game art, and enhanced quality of life features. Accompanying this new interface comes the addition of Player profiles, inventories, and a mock shop. Players now posses gold and user levels to flex accounts, own cards/passives rather than accessing everything, and can purchase cards/passives with their gold, adding towards game progression!
+
+### New Features
+- `Added`: Added an inventory system to users/players! Users must now own cards/passives available in the game before they can use them in their loadouts. To get new cards, player's must purchase them in the 'mock shop' (see below for more info). Owned cards are reflected into their profiles in their inventory!
+
+- `Added`: Added user currency; gold! Players may now earn gold from battles, which are dictated by the enemies present. Certain enemies drop more gold than others, usually based on their difficulty. Goblin enemies are the exception, and drop more gold than their usual counterparts! Gold serves as the current main currency to purchase cards/passive items!
+
+- `Added`: Added a user leveling system! Not to be confused with playable levels, user levels are (for now) cosmetic data that a player can flaunt in their profiles! User levels are increased by experience dropped from enemies, with harder enemies dropping more experience. After reaching a certain threshold, users will level up, and have their new levels reflected in the game! Currently, there are only 10 user levels to climb. Accompanying these levels are level titles earned at certain level milestones, which are also reflected in the game!
+
+- `Added`: Added a mock shop! The mock shop features 4 purchasable cards unowned by the player, curated from the Shop Roster, randomly populated by the server! Players can 'refresh' the Shop Roster to feature a new set of purchasable cards, and cards on sale may randomly go on sale, from 15% off to 100% off (free!). Purchased cards are placed into the player's inventory, and will not shop up in the shop anymore. The shop feature now introduces a whole new lifecycle to the game, adding more game progression and gameplay loop to make the game feel more complete!
+
+- `Changed`: Removed the 'Utility' card type from the game, replaced with two distinct new card types; 'Assistive' and 'Distruptive'! Old cards that had 'Utility' labels are now changed to either of these two types. The new names match the '-ive' word form that the current types use. Assistive cards have direct effect on the player by applying buffs to their character, while Distruptive cards have indirect effect on the player by applying debuffs to the enemies instead!
+
+- `Added`: Added a 'NewGameScreenshots' folder to 'GameScreenshots' (also forgot to explicitly declare a 'GameScreenshots' folder in the changelog. 'GameScreenshots' now hold two folders; 'OldGameScreenshots' which holds the former frontend look of the game before the UI overhaul (these are as old as Version 1.0), and 'NewGameScreenshots' which holds the new look of the game (and new pages) after the overhaul
+
+### Frontend UI Updates
+Added a new set of pages, reworked the game's theme and look, as well as changing how older pages look. The changes affect all the game's pages, so they will be distinctly categorised below:
+
+#### Overall Game Theme/Look
+- `Changed`: Revitalized the Game's look from the former Frontend UI mockup (used as the final look for the project upon CA2 Submission) to the new 8-bit, Pixel style! Mimics classic retro game vibes. Style to be changed/upgraded in the future
+
+- `Added`: Added smooth page transitions. Rather than instantly populating the page to view, there is a subtle 'fade-in' transition between pages. Makes the game feel less static and flow better between pages (and on page loading)
+
+- `Added`: Added card art (Images)! Game items (primarily cards/passives for now) now use image cart to represent them rather than the text cards previously used (refer to Game_Screenshots/OldGameScreenshots for example). Card art gives a more lively and vibrant feel to the game, and make it (somewhat) easier to tell cards apart. All card art uses the same 8-bit, abstract, primary colour style which matches the game's theme. All newly added cards/passives will also have card art implemented
+
+- `Added`: Added button animations. Buttons now lift up slightly when hovered, and has a 'pressing' animation when clicked. Buttons light up slightly when hovered
+
+#### Login Page
+- `Added`: Added the Game's Title, **Tales of Varion**, to the login page, which occupies most of the lefthand to middle of the screen. Moved the login window to the right slightly to accomodate this
+
+#### Game Menu/Home
+- `Added`: Added a navigation tab at the top of the screen; navigation tab holds the options to navigate to other pages, current page option is lit up in the tab bar. On the lefthand side, the game's title as the home button. On the right, basic user data such as username, gold, level, and experience
+
+- `Added`: Added the user's current loadout to the Homescreen. Users now can view their current active loadout without needing to change it to be sure. An 'Edit' button was added in the same container to make it convenient to edit the loadout instantly
+
+- `Added`: Added the player's stats to the Homescreen
+
+- `Added`: Added in-game 'tips' (referred to as 'Field Notes') to the Homescreen. The tips dynamically slide on their own, though users can scroll through the tips manually
+
+#### Game Catalog
+- `Removed`: Removed the 'levels' tab/view from GameCatalog, this has been moved to the new 'Level Selection' page
+
+- `Changed`: Changed how 'Cards' are presented into GameCatalog. Now, the GameCatalog presents the 'Cards' as their image art (refer to GameScreenshot), and a small panel on the side would present the
+relevant data fields, such as cardName, cardDesc, and cardType. Made the catalog container scrollable so that users need not scroll the page down so far. Unowned cards are greyed out and have a 'locked' text over it, its item details displays 'You have not unlocked this card yet'
+
+- `Changed`: Changed how 'Passives' are presented into GameCatalog. Now, the GameCatalog presents the 'Passives' as their image art, and a small panel on the side would present the relevant data fields, such as passiveName and passiveDesc. Made the catalog scrollable. Unowned passives are greyed out and have a 'locked' text over it, its item details displays 'You have not unlocked this passive yet'
+
+- `Changed`: Changed how 'Enemies' are presented into GameCatalog. Now, the GameCatalog presents the enemy data by showing only its enemyName, enemyDesc, relevant traits (e.g flying, undead), and the gold/experience they drop. Enemy image art will be rolled out in the next major update
+
+#### UpdateLoadout
+- `Changed`: Changed how the 'Cards' and 'Passives' are presented in 'UpdateLoadout'. Cards/Passives use their image art inside the selection container. Cards are also presented side by side (2 cards a row) to accomodate the great number of cards
+
+- `Changed`: Changed how the item details are presented in 'UpdateLoadout'. Item details now includes the card/passive image art below its name, and shows its type if any (not applicable to passives). Item detail only present the cards description below the image art
+
+- `Added`: Added a small 'pop-up' animation when cards/passives are added into the 'Proposed Loadout' view
+
+#### Battle View
+- `Changed`: Changed the way cards are played in a battle. Cards are now 'draggable' in the player's hand, and players can drag the intended card to play to the enemy target of choice. Cards can be dragged to the player's own UI card if the player wants to play a card on themselves (for Supportive/Defensive/Assistive cards) or when they want the card to auto-target the first in-line enemy. An orange indicator (either 1 or 2) will pop up beside the targetted entity's UI card to indicate that an action has been queued on that target. Queued actions cannot be reversed
+
+- `Removed`: Remove the clunky 'Payload Summary' UI at the bottom of the screen as it is not needed and takes up space
+
+#### NEW: Player Profile
+- `Added`: Added a new 'Player Profile' page! This page is meant to present all of the user's data to the user. This includes their level, their level title (above their level number), the amount of experience to the next level, their gold, their highest playable level achieved (presented as the level's name and the level number), and their inventory that holds their owned Cards/Passives. Inventory allows filtering for Cards or Passives, and a search bar to search for a certain card. Cards/Passives are presented as their image art. The cards populate the screen by 'filling up' the inventory container. Beside the cards/passives, an item details panel similar to that in GameCatalog
+
+#### NEW: Level Selection
+- `Added`: Added a new 'Level Selection' page! This page is meant to present all of the playable levels to the current user. Levels are unlocked by first playing the previous level (or the first level, in this case, 'Goblin Hideout') and winning it. This sets a new 'Highest unlocked level' which allows the player to play that level and its prior levels. Hovering over a level presents the level details such as the levelName, levelDesc, the present enemies, and whether the level is 'Unlocked' or 'Locked'. Locked levels are unplayable/unavailable to the player, and hides the levelDesc and present enemies (retains level name). Levels options are dynamically stacked atop each other, level details 'slide' into the panel
+
+#### NEW: Shop/Merchant page
+- `Added`: Added a new 'Item Shop' page! This page is meant to be the main endpoint for players to unlock and purchase new cards/passives for their inventory, and make 'game progression' (aside from the main battle levels, tho some levels are dependent on specific cards!). The page features a central shop system that presents 4 purchasable cards. This roster of cards are unique to each player, and does not refresh its offers until the player either pays for a refresh, or buys all the cards in the shop (which triggers a natural shop reseeding). The item details are presented on the lefthand side of the screen, and player's gold count and the two shop options (purchase or refresh) are on the righthand side. Individual card prices are displayed underneath the cards. The shop may give discounts to certain cards upon each refresh. This discount is dynamically displayed below, showing the old price slashed out, then the new price, and then the percentage discount. A 'Sale!' tag is displayed on the card's image art when an item is on sale. Cards/Passives are presented as their image art. Item cards are dynamically 'flipped' over upon refresh and upon viewing the shop, and then reflipped, and then flipped again upon a shop refresh (like Solitare)
+
+### Bug Fixes and Code Changes
+- `Added`: Added `#region` markers to `usersModel.js` and `usersController.js` (similar to `battlesController.js` and `battlesModel.js`) to organise database operation/group functions by purpose
+
+- `Changed`: Changed the web application to display the title 'Tales of Varion' in the browser (which is the game's title)
+
+- `Changed`: Updated the README to present relevant information (read README for details)
+
+- `Fixed`: Fixed a bug where new players signing up and creating a new account fail to have playerStats initialized. This was due to missing out on a stat field, 'Intelligence', which caused the server to not complete the account creation process properly
+
+- `Fixed`: Fixed a bug where new players playerStats started their agility at 100/100 instead of 50/100 (based on a prior version's nerf)
+
 ## Version 1.2.1 - Statuses and Witches
 ### General Status Mechanics
 - `Changed`: Changed how the server processes status effects. Now, all statuses are handled on their own by the server, removing the need for a 'general handling'. To be clear, now in `battlesController.js`, status effects are no longer classed by `dynamicStatus`, they are instead uniquely handled by what they are (e.g if (statusName === ...)...)

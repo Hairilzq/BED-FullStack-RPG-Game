@@ -17,7 +17,11 @@ export const addUser = async (username, password) => {
     .values({
       username: username,
       password: password,
-      levelProgress: 1
+      gold: 0,
+      userExperience: 0,
+      userLevel: 1,
+      levelProgress: 1,
+      levelHighest: 1
     })
     .returning();
   return newRecord;
@@ -30,7 +34,8 @@ export const addPlayerStats = async (username) => {
       playerName: username,
       health: 30,
       defense: 0,
-      agility: 100,
+      agility: 50,
+      intelligence: 10,
       passiveName: "Healthy"
     })
     .returning();

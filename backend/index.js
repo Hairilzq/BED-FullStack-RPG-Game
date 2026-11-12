@@ -8,6 +8,7 @@ import cors from 'cors';
 import { usersRoute } from './src/Router/usersRouter.js';
 import { battlesRoute } from './src/Router/battlesRouter.js';
 import { loginRoute } from './src/Router/loginRouter.js';
+import { shopRoute } from './src/Router/shopRouter.js';
 
 const app = express();
 //const cors = require('cors');
@@ -29,6 +30,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/users', usersRoute);
 app.use('/battle', battlesRoute);
 app.use('/login', loginRoute);
+app.use('/shop', shopRoute);
 
 // Only listen when run directly (not imported for testing)
 const PORT = process.env.PORT || 3000;

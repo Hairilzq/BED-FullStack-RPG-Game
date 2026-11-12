@@ -1,4 +1,4 @@
-# Project Description
+# Project Description - Tales of Varion
 Hello there, this was once part of my Backend Development coursework where I had to develop a playable web browser game using my knowledge on CRUD endpoints, Databases, and Frontend usability with Backend functions. The project was split into two parts across two terms; First was creating the backend code only, using only a browser emulator like Bruno to play the game through submitting raw JSON payloads. Second was creating a frontend UI so that the game was playable in the browser, alongside other stuff like security features and additional game features. I have now converted this into a personal passion project to work on im my free time, adding new game features, optimizing code, securing endpoints, creating visuals, and anything I want to play with. I hope to look back at this project and see how much it has grown, much like how it did while I was first working on it.
 
 # Tech Stack
@@ -10,7 +10,7 @@ Hello there, this was once part of my Backend Development coursework where I had
 # Game Theme Description
 This is an RPG, turn-based, dynamic combat game with level progression. You somehow travel to an alternate universe where all of the lands are ruled by the Kingdom of Varion, under the tyrannical ruler Shaw Harion! Shaw holds the sacred weapon, the Blood Stone, that you suspect may take you back to your home world! As such, you set out to end the reign of terror of King Varion Shaw, and claim the Blood Stone so that you may go home!
 
-Players can view game data through the 'Game Catalog' where they may read more about the cards, passives, enemies, lore, and levels available. Players can create their own customised deck of action cards and choice of passive based of the available selection cards and passives through the 'Update Loadout'. Players can then start battles by selecting 'Battle', and progress through the preset levels in the game where they fight progressively harder enemies up until the boss, King Varion Shaw (and company).
+Players may fight in 7 different levels that gradually increase in difficulty that introduce new game mechanics (such as Poison and Undead) in Battle. Players may earn gold from Battles to purchase cards or passives from the itemShop to increase their card selection choice in order to reliably counter more enemies or adopt different game strategies. Players may earn experience from Battles to level up their character, which grants them cosmetic titles based on their levelband. The goal of the game is to beat King Varion Shaw, reach the max level, and own all the cards/passives in the game!
 
 # Notable Game Mechanics & System Architecture
 
@@ -29,6 +29,9 @@ Players can view game data through the 'Game Catalog' where they may read more a
 * **Stateful Campaign Progression & Stage Provisioning:**
   Tracks player campaign progression milestones on the backend. Automatically calculates, provisions, and loads the appropriate level state and enemy wave configuration upon battle start without manual stage selection.
 
+* **Dynamic Item Shop Hydration & Random Offer Selection**
+  Randomly fills an item shop endpoint with a random selection of in-game content that is unowned by the user. Accepts a small shop roster refresh fee if a refresh is requested, and automatically removes and refills current shop roster items. Decides on the spot whether to provide a discount, and what band of discount (ranging from 15% off to 100% off)
+
 # Setup
 git clone "..." -> Clone the code repo by inserting the repo link in "..."
 
@@ -45,7 +48,7 @@ npm run dev
 ```
 Ensure that both servers are running. Ensure that there are no reference errors (this file is in another directory that this file needs). If any of the files are missing, the game may not start.
 
-Note that a JWT_SECRET variable is stored in a .env file (which is not in this repo) and its used for generating JWT tokens.
+Note that a JWT_SECRET variable is stored in a .env file (which is not in this repo) and its used for generating JWT tokens. Game images are also best imported for the best experience :)
 
 Once done, to play the game, visit //http:localhost:5173 on your browser (while both servers are running). Youll see the login page. There are 3 preset users, choose any from the database or just make your own at Signup. Creating a new user creates for you a template loadout that you may change later on. Note that on db resets, newly created users will perish
 
@@ -59,10 +62,24 @@ Note you must be logged in and have a valid JWT token (which lasts for an hour) 
 View Game Description for what you can do in this game.
 
 ## Game Screenshots
-The game screenshots consist of the following interfaces:
- - GameCatalog
- - UpdateLoadout
- - Battle
+The game screenshots consist of two folders; an OldGameScreenshots folder and a NewGameScreenshots folder:
+
+### Old Screenshots (Version 1.0)
+These are the game images available for viewing:
+- GameCatalog page
+- UpdateLoadout page
+- BattleView page
+
+### New Screenshots (Version 2.0)
+These are the game images available for viewing:
+- Login Page
+- GameMenu page
+- UpdateLoadout page
+- GameCatalog page
+- PlayerProfile page
+- ItemShop page
+- LevelSelection page
+- BattleView page
 
 ## Additional Game Info
 Refer to seed.js in /backend/src/db/seed.js for game content such as card names, enemy names, passive names, available levels. I may add a README document in the future to list all the game's content

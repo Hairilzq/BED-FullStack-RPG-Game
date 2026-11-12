@@ -1,5 +1,4 @@
 import { Router } from "express";
-import jwt from "jsonwebtoken";
 import { handleLogin, handleSignup } from "../Controller/loginController.js";
 
 export const loginRoute = Router();

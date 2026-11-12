@@ -16,59 +16,116 @@ import { fileURLToPath } from 'url';
 import 'dotenv/config';
 
 // Import your table schemas here. ALWAYS REMEMBER TO IMPORT NEW TABLES HERE
-import { cardDB, cardAbilitiesDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerLoadout, playerStats, statusEffectDatabase, users } from './schema.js';
+import { cardDB, cardAbilitiesDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerLoadout, playerStats, statusEffectDatabase, users, userInventory, userLevelSystem } from './schema.js';
 
 // --- Seed data ---
 /** Sample users */
 const sampleUsers = [
-  { username: 'Zslayer30', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', levelProgress: 4 },
-  { username: 'SkyBlazer21', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', levelProgress: 1 },
-  { username: 'NightWalker75', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', levelProgress: 1 }
+  { username: 'Zslayer30', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', gold: 3389, userExperience: 10, userLevel: 10, levelProgress: 1, levelHighest: 7 },
+  { username: 'SkyBlazer21', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', gold: 50000, userExperience: 0, userLevel: 1, levelProgress: 1, levelHighest: 1 },
+  { username: 'NightWalker75', password: '$2b$10$qp2CtDV4dFvM.9ym.d5SMuQ0EW.QXyZ.EdfO3u2q6EJYDmxUocHjW', gold: 0, userExperience: 0, userLevel: 1, levelProgress: 1, levelHighest: 1 }
 ];
+
+/** User Levels System */
+const userLevelsDatabase = [
+  { levelNumber: 1, experienceNeeded: 10, levelTitle: 'Novice' },
+  { levelNumber: 2, experienceNeeded: 50, levelTitle: 'Novice' },
+  { levelNumber: 3, experienceNeeded: 100, levelTitle: 'Trained' },
+  { levelNumber: 4, experienceNeeded: 200, levelTitle: 'Trained' },
+  { levelNumber: 5, experienceNeeded: 500, levelTitle: 'Skilled' },
+  { levelNumber: 6, experienceNeeded: 1000, levelTitle: 'Skilled' },
+  { levelNumber: 7, experienceNeeded: 1750, levelTitle: 'Expert' },
+  { levelNumber: 8, experienceNeeded: 3000, levelTitle: 'Expert' },
+  { levelNumber: 9, experienceNeeded: 5500, levelTitle: 'Expert' }
+]
+
+/** Player card loadout - Holds the current loadout of a player that can be used in battle. Can be changed using /user/loadout */
+const userInventoryDatabase = [
+  { username: 'Zslayer30', itemName: 'Sword Slash', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Slingshot', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Brace', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Healing Aura', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Defensive Stance', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Spear Stab', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Boulder Hurl', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Great Hammer', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Javelin Throw', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Crossbow Shot', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Dance Blades', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Angry Feeling', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Fine Feeling', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Shield Dissolve', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Energize', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Be Vigilant', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Smart Tactics', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Mind Games', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Lifesteal', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Cast Recovery', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Be Immaterial', itemQuantity: 1, itemType: 'Card' },
+  { username: 'Zslayer30', itemName: 'Astute', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'Zslayer30', itemName: 'Armoured', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'Zslayer30', itemName: 'Aggressive', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'Zslayer30', itemName: 'Steadfast', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'Zslayer30', itemName: 'Rejuvenate', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'Zslayer30', itemName: 'Healthy', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'SkyBlazer21', itemName: 'Sword Slash', itemQuantity: 1, itemType: 'Card' },
+  { username: 'SkyBlazer21', itemName: 'Slingshot', itemQuantity: 1, itemType: 'Card' },
+  { username: 'SkyBlazer21', itemName: 'Brace', itemQuantity: 1, itemType: 'Card' },
+  { username: 'SkyBlazer21', itemName: 'Healing Aura', itemQuantity: 1, itemType: 'Card' },
+  { username: 'SkyBlazer21', itemName: 'Defensive Stance', itemQuantity: 1, itemType: 'Card' },
+  { username: 'SkyBlazer21', itemName: 'Healthy', itemQuantity: 1, itemType: 'Passive' },
+  { username: 'NightWalker75', itemName: 'Sword Slash', itemQuantity: 1, itemType: 'Card' },
+  { username: 'NightWalker75', itemName: 'Slingshot', itemQuantity: 1, itemType: 'Card' },
+  { username: 'NightWalker75', itemName: 'Brace', itemQuantity: 1, itemType: 'Card' },
+  { username: 'NightWalker75', itemName: 'Healing Aura', itemQuantity: 1, itemType: 'Card' },
+  { username: 'NightWalker75', itemName: 'Defensive Stance', itemQuantity: 1, itemType: 'Card' },
+  { username: 'NightWalker75', itemName: 'Healthy', itemQuantity: 1, itemType: 'Passive' }
+]
+
 /** Player Stats for each user - Unchanging, but will be pulled into Active Battle Table for reference */
 const samplePlayerStats = [
-  { playerName: 'Zslayer30', health: 30, defense: 0, agility: 50, intelligence: 10, passiveName: 'Steadfast' },
+  { playerName: 'Zslayer30', health: 30, defense: 0, agility: 50, intelligence: 10, passiveName: 'Healthy' },
   { playerName: 'SkyBlazer21', health: 30, defense: 0, agility: 50, intelligence: 10, passiveName: 'Healthy' },
-  { playerName: 'NightWalker75', health: 30, defense: 0, agility: 50, intelligence: 10, passiveName: 'Armoured' }
+  { playerName: 'NightWalker75', health: 30, defense: 0, agility: 50, intelligence: 10, passiveName: 'Healthy' }
 ]
 /** Enemy Database - Preprogrammed enemies that can be battled */
 const enemyDatabase = [
-  { enemyName: 'Goblin', health: 10, defense: 1, flying: false, undead: false, speedy: false, enemyDesc: 'A pesky Goblin that is trying to steal your gear! Weak, but not to be underestimated!' },
-  { enemyName: 'Wishful Moth', health: 7, defense: 0, flying: true, undead: false, speedy: false, enemyDesc: 'Native to the Twilight Forest, Wishful Moth protects the forest from intruders like you! Flies with Poison attacks!' },
-  { enemyName: 'Mushroom Moore', health: 12, defense: 0, flying: false, undead: false, speedy: false, enemyDesc: 'Enchanted living Mushroom brought to life by the Witches of Varion, inflicts Curses upon you!' },
-  { enemyName: 'Goblin Brute', health: 10, defense: 3, flying: false, undead: false, speedy: true, enemyDesc: 'The leader of the Goblin pack! Very durable, but takes rests sometimes. Time your attacks wisely!' },
-  { enemyName: 'Skeleton Warrior', health: 15, defense: 0, flying: false, undead: true, speedy: true, enemyDesc: 'Former warrior, now reincarnated as a Skeleton Warrior! Attacks before you, and can use a Shield!' },
-  { enemyName: 'Forsaken Witch', health: 15, defense: 0, flying: false, undead: true, speedy: false, enemyDesc: 'A cursed Witch that has been Forsakened by its village, unleashes its wrath before you! Can protect its allies from status ailments!' },
-  { enemyName: 'Exalted Mage', health: 10, defense: 5, flying: false, undead: false, speedy: false, enemyDesc: 'Freshly graduated from Varion School of Magic Arts, Exalted Mage is ready to assist his mates in battle! Provides healing to allies' },
-  { enemyName: 'Redback Dragon', health: 25, defense: 0, flying: true, undead: false, speedy: false, enemyDesc: 'The mighty air defense of Kingdom Varion, the Redback Dragon guards the kingdom! Flies and can Burn you if youre not careful!' },
-  { enemyName: 'Fungi Beast', health: 30, defense: 1, flying: false, undead: false, speedy: false, enemyDesc: 'A Giant hulking beast that roams the Fungi Feugal, it is not very kind to strangers! High health and powerful hits that have the chance be a Critical Hit!' },
-  { enemyName: 'Gilded Assasin', health: 20, defense: 2, flying: false, undead: false, speedy: false, enemyDesc: 'A Gilded Assasin sent by the King himself to deal with you! His weapon, the Blood Blade, holds a fraction of the Blood Stone power!' },
-  { enemyName: 'King Varion Shaw', health: 50, defense: 2, flying: false, undead: false, speedy: false, enemyDesc: 'The ruler himself, King Varion Shaw! Wields the lethal powers of the Blood Stone, and his Varion Staff of which holds magical powers!' }
+  { enemyName: 'Goblin', health: 10, defense: 1, flying: false, undead: false, speedy: false, gold: 10, experience: 2, enemyDesc: 'A pesky Goblin that is trying to steal your gear! Weak, but not to be underestimated!' },
+  { enemyName: 'Wishful Moth', health: 7, defense: 0, flying: true, undead: false, speedy: false, gold: 5, experience: 3, enemyDesc: 'Native to the Twilight Forest, Wishful Moth protects the forest from intruders like you! Flies with Poison attacks!' },
+  { enemyName: 'Mushroom Moore', health: 12, defense: 0, flying: false, undead: false, speedy: false, gold: 7, experience: 5, enemyDesc: 'Enchanted living Mushroom brought to life by the Witches of Varion, inflicts Curses upon you!' },
+  { enemyName: 'Goblin Brute', health: 10, defense: 3, flying: false, undead: false, speedy: true, gold: 15, experience: 3, enemyDesc: 'The leader of the Goblin pack! Very durable, but takes rests sometimes. Time your attacks wisely!' },
+  { enemyName: 'Skeleton Warrior', health: 15, defense: 0, flying: false, undead: true, speedy: true, gold: 10, experience: 7, enemyDesc: 'Former warrior, now reincarnated as a Skeleton Warrior! Attacks before you, and can use a Shield!' },
+  { enemyName: 'Forsaken Witch', health: 15, defense: 0, flying: false, undead: true, speedy: false, gold: 20, experience: 10, enemyDesc: 'A cursed Witch that has been Forsakened by its village, unleashes its wrath before you! Can protect its allies from status ailments!' },
+  { enemyName: 'Exalted Mage', health: 10, defense: 5, flying: false, undead: false, speedy: false, gold: 50, experience: 25, enemyDesc: 'Freshly graduated from Varion School of Magic Arts, Exalted Mage is ready to assist his mates in battle! Provides healing to allies' },
+  { enemyName: 'Redback Dragon', health: 25, defense: 0, flying: true, undead: false, speedy: false, gold: 25, experience: 25, enemyDesc: 'The mighty air defense of Kingdom Varion, the Redback Dragon guards the kingdom! Flies and can Burn you if youre not careful!' },
+  { enemyName: 'Fungi Beast', health: 30, defense: 1, flying: false, undead: false, speedy: false, gold: 15, experience: 50, enemyDesc: 'A Giant hulking beast that roams the Fungi Feugal, it is not very kind to strangers! High health and powerful hits that have the chance be a Critical Hit!' },
+  { enemyName: 'Gilded Assasin', health: 20, defense: 2, flying: false, undead: false, speedy: false, gold: 50, experience: 75, enemyDesc: 'A Gilded Assasin sent by the King himself to deal with you! His weapon, the Blood Blade, holds a fraction of the Blood Stone power!' },
+  { enemyName: 'King Varion Shaw', health: 50, defense: 2, flying: false, undead: false, speedy: false, gold: 500, experience: 250, enemyDesc: 'The ruler himself, King Varion Shaw! Wields the lethal powers of the Blood Stone, and his Varion Staff of which holds magical powers!' }
 ]
 
 /** Card Database that holds the functions of each card */
 const cardDatabase = [
-  { cardName: 'Sword Slash', Type: "Offensive", damage: 5, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardAbility: 'ShieldBreaker', abilityLevel: 3, cardDesc: 'Slash at enemies with a sword! Deals 5 damage, and 3 additional damage to enemies with defense! Cannot hit flying enemies' },
-  { cardName: 'Slingshot', Type: "Offensive", damage: 5, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'Marked', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Fire pellets at enemies using a slingshot! Marks them for extra damage! Deals 5 damage and 2 extra damage on Marked enemies, but cannot hurt enemies with defense' },
-  { cardName: 'Spear Stab', Type: "Offensive", damage: 8, heal: 0, hitFlying: false, hitDefense: false, statusEffectInflicted: 'None', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Stab enemies with a spear! Deals 8 damage but cannot hit flying enemies or enemies with defense' },
-  { cardName: 'Boulder Hurl', Type: "Offensive", damage: 3, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'Pierce', cardAbility: 'AreaEffect', abilityLevel: 2, cardDesc: 'Hurl a small boulder at enemies! Deals 3 damage that can pierce defense! Deals 2 damage to adjacent targets!' },
-  { cardName: 'Dance Blades', Type: "Offensive", damage: 3, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardAbility: 'Multi-Hit', abilityLevel: 3, cardDesc: 'A delicate and elegant weapon! Wield Dance Blades that deal 3 damage, but have a chance to hit the same enemy multiple times! Cannot hit flying enemies' },
-  { cardName: 'Crossbow Shot', Type: "Offensive", damage: 10, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'Loaded', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Fire a bolt at enemies using a Crossbow! Deals 10 damage, requires loading the weapon once. Cannot hit enemies with defense' },
-  { cardName: 'Great Hammer', Type: "Offensive", damage: 8, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Prepped', cardAbility: 'AreaEffect', abilityLevel: 4, cardDesc: 'Slam down on enemies with a Great Hammer! Deals 8 damage on the primary target, and 4 damage on adjacent targets, requires prepping the weapon once' },
-  { cardName: 'Javelin Throw', Type: "Offensive", damage: 4, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'None', cardAbility: 'CritUP', abilityLevel: 3, cardDesc: 'Throw a Javelin at enemies! Deals 4 damage, and provides a higher baseline chance to do Critical Hits! Cannot hit defense' },
-  { cardName: 'Healing Aura', Type: "Support", damage: 0, heal: 5, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Heal yourself for 5 health! Refreshing!' },
-  { cardName: 'Cast Recovery', Type: "Support", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Regenerate', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Use a spell to heal yourself over time! Heals 3 health points over 3 turns' },
-  { cardName: 'Lifesteal', Type: "Support", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Lifesteal', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Enchant your attacks with Lifesteal! Heal for the amount of damage you dealt to a single enemy' },
-  { cardName: 'Brace', Type: "Defensive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Invincible', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Brace yourself for a massive attack! Become invulnerable to any incoming damage for that turn, but skip your next turn' },
-  { cardName: 'Defensive Stance', Type: "Defensive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'DefenseUPLvl1', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Take up a defensive stance to reduce damage! Grants 3 defense points for that turn' },
-  { cardName: 'Be Immaterial', Type: "Defensive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Invulnerable', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Become Immaterial! Grant yourself Invulnerable, activating it with another Invulnerable makes you immune to damage!' },
-  { cardName: 'Shield Dissolve', Type: "Utility", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'DefenseDOWNLvl3', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Cast a Shield Dissolving spell on enemies! Reduces their defense points by 3 for 3 turns' },
-  { cardName: 'Fine Feeling', Type: "Utility", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Cleanse', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Feel fine! Be immune to status effects cast by enemies for that turn, and cleanses other negative effects on you!' },
-  { cardName: 'Energize', Type: "Utility", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'AgilityUP', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Raise your agility! Gain 10 agility points' },
-  { cardName: 'Be Vigilant', Type: "Utility", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'RegenAgility', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Use a spell to regenerate your agility! Gain 5 agility points over 4 turns' },
-  { cardName: 'Smart Tactics', Type: "Utility", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'IntelligenceUP', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Raise your intelligence! Gain 10 intelligence points. Reset intelligence to base after a successful Critical Hit.' },
-  { cardName: 'Mind Games', Type: "Utility", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'RegenIntel', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Outsmart your enemies! Gain 5 intelligence points over 3 turns' },
-  { cardName: 'Angry Feeling', Type: "Utility", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'BerserkLvl1', cardAbility: 'None', abilityLevel: 0, cardDesc: 'Feel angry! Gain 1 additional damage on all attacks, but lose 5 health points' }
+  { cardName: 'Sword Slash', Type: "Offensive", damage: 5, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardAbility: 'ShieldBreaker', abilityLevel: 3, cardCost: 0, cardDesc: 'Slash at enemies with a sword! Deals 5 damage, and 3 additional damage to enemies with defense! Cannot hit flying enemies' },
+  { cardName: 'Slingshot', Type: "Offensive", damage: 5, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'Marked', cardAbility: 'None', abilityLevel: 0, cardCost: 0, cardDesc: 'Fire pellets at enemies using a slingshot! Marks them for extra damage! Deals 5 damage and 2 extra damage on Marked enemies, but cannot hurt enemies with defense' },
+  { cardName: 'Spear Stab', Type: "Offensive", damage: 8, heal: 0, hitFlying: false, hitDefense: false, statusEffectInflicted: 'None', cardAbility: 'None', abilityLevel: 0, cardCost: 150, cardDesc: 'Stab enemies with a spear! Deals 8 damage but cannot hit flying enemies or enemies with defense' },
+  { cardName: 'Boulder Hurl', Type: "Offensive", damage: 3, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'Pierce', cardAbility: 'AreaEffect', abilityLevel: 2, cardCost: 200, cardDesc: 'Hurl a small boulder at enemies! Deals 3 damage that can pierce defense! Deals 2 damage to adjacent targets!' },
+  { cardName: 'Dance Blades', Type: "Offensive", damage: 3, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardAbility: 'Multi-Hit', abilityLevel: 3, cardCost: 700, cardDesc: 'A delicate and elegant weapon! Wield Dance Blades that deal 3 damage, but have a chance to hit the same enemy multiple times! Cannot hit flying enemies' },
+  { cardName: 'Crossbow Shot', Type: "Offensive", damage: 10, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'Loaded', cardAbility: 'None', abilityLevel: 0, cardCost: 550, cardDesc: 'Fire a bolt at enemies using a Crossbow! Deals 10 damage, requires loading the weapon once. Cannot hit enemies with defense' },
+  { cardName: 'Great Hammer', Type: "Offensive", damage: 8, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Prepped', cardAbility: 'AreaEffect', abilityLevel: 4, cardCost: 850, cardDesc: 'Slam down on enemies with a Great Hammer! Deals 8 damage on the primary target, and 4 damage on adjacent targets, requires prepping the weapon once' },
+  { cardName: 'Javelin Throw', Type: "Offensive", damage: 4, heal: 0, hitFlying: true, hitDefense: false, statusEffectInflicted: 'None', cardAbility: 'CritUP', abilityLevel: 3, cardCost: 450, cardDesc: 'Throw a Javelin at enemies! Deals 4 damage, and provides a higher baseline chance to do Critical Hits! Cannot hit defense' },
+  { cardName: 'Healing Aura', Type: "Support", damage: 0, heal: 5, hitFlying: false, hitDefense: true, statusEffectInflicted: 'None', cardAbility: 'None', abilityLevel: 0, cardCost: 0, cardDesc: 'Heal yourself for 5 health! Refreshing!' },
+  { cardName: 'Cast Recovery', Type: "Support", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Regenerate', cardAbility: 'None', abilityLevel: 0, cardCost: 250, cardDesc: 'Use a spell to heal yourself over time! Heals 3 health points over 3 turns' },
+  { cardName: 'Lifesteal', Type: "Support", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Lifesteal', cardAbility: 'None', abilityLevel: 0, cardCost: 350, cardDesc: 'Enchant your attacks with Lifesteal! Heal for the amount of damage you dealt to a single enemy' },
+  { cardName: 'Brace', Type: "Defensive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Invincible', cardAbility: 'None', abilityLevel: 0, cardCost: 0, cardDesc: 'Brace yourself for a massive attack! Become invulnerable to any incoming damage for that turn, but skip your next turn' },
+  { cardName: 'Defensive Stance', Type: "Defensive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'DefenseUPLvl1', cardAbility: 'None', abilityLevel: 0, cardCost: 0, cardDesc: 'Take up a defensive stance to reduce damage! Grants 3 defense points for that turn' },
+  { cardName: 'Be Immaterial', Type: "Defensive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Invulnerable', cardAbility: 'None', abilityLevel: 0, cardCost: 250, cardDesc: 'Become Immaterial! Grant yourself Invulnerable, activating it with another Invulnerable makes you immune to damage!' },
+  { cardName: 'Shield Dissolve', Type: "Distruptive", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'DefenseDOWNLvl3', cardAbility: 'None', abilityLevel: 0, cardCost: 750, cardDesc: 'Cast a Shield Dissolving spell on enemies! Reduces their defense points by 3 for 3 turns' },
+  { cardName: 'Fine Feeling', Type: "Assistive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'Cleanse', cardAbility: 'None', abilityLevel: 0, cardCost: 500, cardDesc: 'Feel fine! Be immune to status effects cast by enemies for that turn, and cleanses other negative effects on you!' },
+  { cardName: 'Energize', Type: "Assistive", damage: 0, heal: 0, hitFlying: false, hitDefense: true, statusEffectInflicted: 'AgilityUP', cardAbility: 'None', abilityLevel: 0, cardCost: 275, cardDesc: 'Raise your agility! Gain 10 agility points' },
+  { cardName: 'Be Vigilant', Type: "Assistive", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'RegenAgility', cardAbility: 'None', abilityLevel: 0, cardCost: 225, cardDesc: 'Use a spell to regenerate your agility! Gain 5 agility points over 4 turns' },
+  { cardName: 'Smart Tactics', Type: "Assistive", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'IntelligenceUP', cardAbility: 'None', abilityLevel: 0, cardCost: 275, cardDesc: 'Raise your intelligence! Gain 10 intelligence points. Reset intelligence to base after a successful Critical Hit.' },
+  { cardName: 'Mind Games', Type: "Assistive", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'RegenIntel', cardAbility: 'None', abilityLevel: 0, cardCost: 225, cardDesc: 'Outsmart your enemies! Gain 5 intelligence points over 3 turns' },
+  { cardName: 'Angry Feeling', Type: "Assistive", damage: 0, heal: 0, hitFlying: true, hitDefense: true, statusEffectInflicted: 'BerserkLvl1', cardAbility: 'None', abilityLevel: 0, cardCost: 650, cardDesc: 'Feel angry! Gain 1 additional damage on all attacks, but lose 5 health points' }
 ]
 
 /** Card Ability Database - stores the stats and combat logic of card abilities used by certain cards */
@@ -82,13 +139,13 @@ const cardAbilitiesDatabase = [
 
 /** Passive Database that holds passive stat buffs */
 const passiveDatabase = [
-  { passiveName: 'Aggressive', damage: 1, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, passiveDesc: 'Become stronger and fiercer! Gain 1 more damage on damaging moves, but lose 5 health points' },
-  { passiveName: 'Armoured', damage: 0, healthDebuff: 10, heal: 0, healthBuff: 0, defense: 1, agilityRegen: 0, intelligenceRegen: 0, passiveDesc: 'Become tougher and rigid! Gain 1 defense point permanently, but lose 10 health points' },
-  { passiveName: 'Healthy', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 10, defense: 0, agilityRegen: 0, intelligenceRegen: 0, passiveDesc: 'Become bigger and better! Gain 10 extra health points' },
-  { passiveName: 'Rejuvenate', damage: 0, healthDebuff: 0, heal: 1, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, passiveDesc: 'Become resilient and robust! Gain 1 health point every card you play' },
-  { passiveName: 'Steadfast', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 5, intelligenceRegen: 0, passiveDesc: 'Become quick and agile! Gain 5 agility points each turn' },
-  { passiveName: 'Astute', damage: 0, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 3, passiveDesc: 'Become wise and clever! Gain 3 intelligence points each turn, but lose 5 health points' },
-  { passiveName: 'Blood Stone', damage: 5, healthDebuff: 0, heal: 3, healthBuff: 25, defense: 2, agilityRegen: 5, intelligenceRegen: 5, passiveDesc: 'Wield the power of the Blood Stone! True power is yours!' }
+  { passiveName: 'Aggressive', damage: 1, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become stronger and fiercer! Gain 1 more damage on damaging moves, but lose 5 health points' },
+  { passiveName: 'Armoured', damage: 0, healthDebuff: 10, heal: 0, healthBuff: 0, defense: 1, agilityRegen: 0, intelligenceRegen: 0, cardCost: 1000, passiveDesc: 'Become tougher and rigid! Gain 1 defense point permanently, but lose 10 health points' },
+  { passiveName: 'Healthy', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 10, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 0, passiveDesc: 'Become bigger and better! Gain 10 extra health points' },
+  { passiveName: 'Rejuvenate', damage: 0, healthDebuff: 0, heal: 1, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become resilient and robust! Gain 1 health point every card you play' },
+  { passiveName: 'Steadfast', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 5, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become quick and agile! Gain 5 agility points each turn' },
+  { passiveName: 'Astute', damage: 0, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 3, cardCost: 750, passiveDesc: 'Become wise and clever! Gain 3 intelligence points each turn, but lose 5 health points' }
+  //{ passiveName: 'Blood Stone', damage: 5, healthDebuff: 0, heal: 3, healthBuff: 25, defense: 2, agilityRegen: 5, intelligenceRegen: 5, cardCost: 0, passiveDesc: 'Wield the power of the Blood Stone! True power is yours!' } - Blank out for now; secret item
 ]
 
 /** Enemy Moveset Database - Actions that can be performed by enemies. Which moves belongs to which enemy is dictated inside the Enemy moveset sequencer */
@@ -136,17 +193,17 @@ const enemyMovesDatabase = [
 /** Player card loadout - Holds the current loadout of a player that can be used in battle. Can be changed using /user/loadout */
 const samplePlayerLoadout = [
   { playerName: 'Zslayer30', cardName: 'Sword Slash' },
-  { playerName: 'Zslayer30', cardName: 'Shield Dissolve' },
+  { playerName: 'Zslayer30', cardName: 'Slingshot' },
   { playerName: 'Zslayer30', cardName: 'Brace' },
   { playerName: 'Zslayer30', cardName: 'Healing Aura' },
   { playerName: 'Zslayer30', cardName: 'Defensive Stance' },
   { playerName: 'SkyBlazer21', cardName: 'Sword Slash' },
-  { playerName: 'SkyBlazer21', cardName: 'Shield Dissolve' },
+  { playerName: 'SkyBlazer21', cardName: 'Slingshot' },
   { playerName: 'SkyBlazer21', cardName: 'Brace' },
   { playerName: 'SkyBlazer21', cardName: 'Healing Aura' },
   { playerName: 'SkyBlazer21', cardName: 'Defensive Stance' },
   { playerName: 'NightWalker75', cardName: 'Sword Slash' },
-  { playerName: 'NightWalker75', cardName: 'Shield Dissolve' },
+  { playerName: 'NightWalker75', cardName: 'Slingshot' },
   { playerName: 'NightWalker75', cardName: 'Brace' },
   { playerName: 'NightWalker75', cardName: 'Healing Aura' },
   { playerName: 'NightWalker75', cardName: 'Defensive Stance' }
@@ -195,6 +252,8 @@ const levelTemplate = [
 /** Insert seed data into the database. */
 export const seed = async (db) => {
   await db.insert(users).values(sampleUsers);
+  await db.insert(userInventory).values(userInventoryDatabase);
+  await db.insert(userLevelSystem).values(userLevelsDatabase);
   await db.insert(cardDB).values(cardDatabase);
   await db.insert(playerStats).values(samplePlayerStats);
   await db.insert(enemyStats).values(enemyDatabase);
@@ -205,6 +264,8 @@ export const seed = async (db) => {
   await db.insert(cardAbilitiesDB).values(cardAbilitiesDatabase);
   await db.insert(levelTemplates).values(levelTemplate);
   console.log(`- Inserted ${sampleUsers.length} users`);
+  console.log(`- Inserted ${userInventoryDatabase.length} inventory items`);
+  console.log(`- Inserted ${userLevelsDatabase.length} user levels`);
   console.log(`- Inserted ${cardDatabase.length} cards`);
   console.log(`- Inserted ${samplePlayerStats.length} users stats`);
   console.log(`- Inserted ${enemyDatabase.length} enemies`);

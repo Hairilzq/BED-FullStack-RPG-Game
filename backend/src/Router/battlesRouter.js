@@ -1,11 +1,14 @@
 import { Router } from "express";
-import { fightBattle, initiateLevels, resetBattle } from "../Controller/battlesController.js";
+import { chooseCurrentLevel, fightBattle, initiateLevels, resetBattle } from "../Controller/battlesController.js";
 import { verifyToken } from "../Middleware/verifyToken.js";
 
 export const battlesRoute = Router();
 
 // All routes are protected by verifyToken
 battlesRoute.use(verifyToken);
+
+/** Route to choose a level to play */
+battlesRoute.post('/chooseLevel', chooseCurrentLevel);
 
 /** Route to initiate series of preset levels */
 battlesRoute.post('/initiateLevel', initiateLevels);

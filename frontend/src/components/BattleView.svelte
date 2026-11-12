@@ -1,5 +1,6 @@
 <script>
-  import { afterUpdate, onDestroy, onMount } from "svelte";
+  import { afterUpdate, onMount } from "svelte";
+  import CardArt from "./CardArt.svelte";
   export let activeUser;
   export let navigate;
   export let initialData = null;
@@ -34,10 +35,13 @@
   let hand = [];
   let activePassive = "None";
 
-  // -- Turn Selections (The Staging Queue) --
-  let selectedCards = [];
-  let selectedTargets = [];
+  let selectedActions = [];
+  let activeDrag = null;
+  let pendingDrag = null;
+  let isDraggingCard = false;
+  let hoveredTarget = undefined;
   let isSubmitting = false;
+  let submissionFailed = false;
   let isBattleConcluded = false;
   let isBattleWon = false;
   let damagedEnemyIds = [];
@@ -63,12 +67,17 @@
     }));
 
     if (Array.isArray(rawEnemyPairs)) {
-      for (let i = 0; i < rawEnemyPairs.length; i += 2) {
+      const hasStatusPairs = Array.isArray(rawEnemyPairs[1]);
+      for (let i = 0; i < rawEnemyPairs.length; i += hasStatusPairs ? 2 : 1) {
         const enemyObj = rawEnemyPairs[i];
-        const statusList = rawEnemyPairs[i + 1] || [];
+        const statusList = hasStatusPairs
+          ? rawEnemyPairs[i + 1] || []
+          : enemyObj?.statuses || [];
 
         if (enemyObj) {
-          const pos = enemyObj.enemyPosition || Math.floor(i / 2) + 1;
+          const pos = Number(
+            enemyObj.enemyPosition || enemyObj.id || i + 1,
+          );
           if (pos >= 1 && pos <= 4) {
             const isReviving = statusList.includes("Revive");
             slots[pos - 1] = {
@@ -86,6 +95,10 @@
   }
 
   onMount(() => {
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerCancel);
+
     if (initialData && Array.isArray(initialData)) {
       levelNumber = initialData[0] || 1;
       levelName = initialData[1] || "Arena";
@@ -94,72 +107,214 @@
       activePassive = initialData[4] || "None";
 
       const rawEnemies = initialData[5] || [];
-      if (rawEnemies.length > 0 && !Array.isArray(rawEnemies[1])) {
-        enemies = [1, 2, 3, 4].map((pos) => {
-          const found = rawEnemies[pos - 1];
-          return found
-            ? {
-                ...found,
-                id: pos,
-                isDead: found.health <= 0,
-                isReviving: false,
-                statuses: [],
-              }
-            : {
-                id: pos,
-                enemyName: "Fainted",
-                health: 0,
-                defense: 0,
-                isDead: true,
-                isReviving: false,
-                statuses: [],
-              };
-        });
-      } else {
-        enemies = normalizeEnemySlots(rawEnemies);
-      }
+      enemies = normalizeEnemySlots(rawEnemies);
     }
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerCancel);
+      if (feedbackTimeout) clearTimeout(feedbackTimeout);
+    };
   });
 
   afterUpdate(() => {
     if (logContainer) logContainer.scrollTop = logContainer.scrollHeight;
   });
 
-  // --- NEW QUEUE LOGIC ---
-  function addCard(cardName) {
-    if (isBattleConcluded) return;
-    if (selectedCards.length < 2) selectedCards = [...selectedCards, cardName];
+  function startCardDrag(event, cardName, cardIndex, element) {
+    if (
+      isBattleConcluded ||
+      isSubmitting ||
+      selectedActions.length >= 2 ||
+      event.button !== 0
+    ) {
+      event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    const bounds = element.getBoundingClientRect();
+    pendingDrag = {
+      cardName,
+      cardIndex,
+      element,
+      slot: element.parentElement,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      width: bounds.width,
+      height: bounds.height,
+    };
   }
 
-  function removeCard(index) {
-    selectedCards = selectedCards.filter((_, i) => i !== index);
+  function startCardSelection(cardName, cardIndex) {
+    if (
+      isBattleConcluded ||
+      isSubmitting ||
+      selectedActions.length >= 2
+    ) {
+      return;
+    }
+    activeDrag = { cardName, cardIndex, element: null };
   }
 
-  function addTarget(enemyId) {
-    if (isBattleConcluded) return;
-    const enemy = enemies.find((e) => e.id === enemyId);
-    if (!enemy || enemy.isDead || enemy.isReviving || enemy.health <= 0) return;
-    if (selectedTargets.length < 2)
-      selectedTargets = [...selectedTargets, enemyId];
+  function getTargetAtPoint(x, y) {
+    const target = document
+      .elementFromPoint(x, y)
+      ?.closest("[data-battle-target]");
+    if (!target) return undefined;
+    if (target.dataset.battleTarget === "player") {
+      return { targetId: null };
+    }
+
+    const targetId = Number(target.dataset.battleTarget);
+    const enemy = enemies.find((candidate) => candidate.id === targetId);
+    if (!enemy || enemy.isDead || enemy.isReviving || enemy.health <= 0) {
+      return undefined;
+    }
+    return { targetId };
   }
 
-  function removeTarget(index) {
-    selectedTargets = selectedTargets.filter((_, i) => i !== index);
+  function handlePointerMove(event) {
+    if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return;
+
+    if (!isDraggingCard) {
+      const distance = Math.hypot(
+        event.clientX - pendingDrag.startX,
+        event.clientY - pendingDrag.startY,
+      );
+      if (distance < 6) return;
+
+      activeDrag = pendingDrag;
+      isDraggingCard = true;
+      pendingDrag.element.classList.add("dragging-card");
+      pendingDrag.element.style.position = "fixed";
+      pendingDrag.element.style.zIndex = "1000";
+      pendingDrag.element.style.width = `${pendingDrag.width}px`;
+      pendingDrag.element.style.height = `${pendingDrag.height}px`;
+      pendingDrag.element.style.margin = "0";
+      pendingDrag.element.style.pointerEvents = "none";
+      pendingDrag.element.style.opacity = "1";
+      pendingDrag.element.style.willChange = "left, top, transform";
+    }
+
+    pendingDrag.element.style.left = `${event.clientX - pendingDrag.offsetX}px`;
+    pendingDrag.element.style.top = `${event.clientY - pendingDrag.offsetY}px`;
+    const target = getTargetAtPoint(event.clientX, event.clientY);
+    hoveredTarget = target?.targetId;
   }
 
-  function getCardCount(cardName) {
-    return selectedCards.filter((c) => c === cardName).length;
+  function animateCardReturn(drag) {
+    const element = drag.element;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      element.classList.remove("dragging-card");
+      element.removeAttribute("style");
+      return;
+    }
+
+    const from = element.getBoundingClientRect();
+    const to = drag.slot.getBoundingClientRect();
+    element.classList.remove("dragging-card");
+    const animation = element.animate(
+      [
+        {
+          left: `${from.left}px`,
+          top: `${from.top}px`,
+          transform: "scale(0.96)",
+        },
+        {
+          left: `${to.left}px`,
+          top: `${to.top}px`,
+          transform: "scale(1)",
+        },
+      ],
+      { duration: 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+    );
+    animation.onfinish = () => element.removeAttribute("style");
   }
 
-  function getTargetCount(enemyId) {
-    return selectedTargets.filter((t) => t === enemyId).length;
+  function handlePointerUp(event) {
+    if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return;
+
+    const drag = pendingDrag;
+    pendingDrag = null;
+
+    if (!isDraggingCard) return;
+
+    const target = getTargetAtPoint(event.clientX, event.clientY);
+    if (target) {
+      activeDrag = drag;
+      commitAction(target.targetId);
+    }
+
+    activeDrag = null;
+    hoveredTarget = undefined;
+    isDraggingCard = false;
+    animateCardReturn(drag);
   }
 
-  function getTargetLabel(enemyId) {
-    const enemy = enemies.find((e) => e.id === enemyId);
-    return enemy ? `${enemy.enemyName}` : `Pos ${enemyId}`;
+  function handlePointerCancel(event) {
+    if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return;
+    const drag = pendingDrag;
+    pendingDrag = null;
+    activeDrag = null;
+    hoveredTarget = undefined;
+    if (isDraggingCard) animateCardReturn(drag);
+    isDraggingCard = false;
   }
-  // -----------------------
+
+  function handleCardKeydown(event, cardName, cardIndex) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      startCardSelection(cardName, cardIndex);
+    }
+  }
+
+  function handleTargetKeydown(event, targetId) {
+    if (
+      activeDrag &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      commitAction(targetId);
+    }
+  }
+
+  function commitAction(targetId) {
+    if (
+      !activeDrag ||
+      isSubmitting ||
+      isBattleConcluded ||
+      selectedActions.length >= 2
+    ) {
+      return;
+    }
+
+    if (targetId !== null) {
+      const enemy = enemies.find((candidate) => candidate.id === targetId);
+      if (!enemy || enemy.isDead || enemy.isReviving || enemy.health <= 0) {
+        return;
+      }
+    }
+
+    selectedActions = [
+      ...selectedActions,
+      { cardName: activeDrag.cardName, targetId },
+    ];
+    activeDrag = null;
+    hoveredTarget = undefined;
+    submissionFailed = false;
+
+    if (selectedActions.length === 2) void submitTurn();
+  }
+
+  function getTargetActionNumbers(targetId) {
+    return selectedActions.flatMap((action, index) =>
+      action.targetId === targetId ? [index + 1] : [],
+    );
+  }
 
   function hasNewStatus(previousStatuses, nextStatuses) {
     const previousCounts = new Map();
@@ -227,14 +382,7 @@
         const previousEnemy = enemies.find(
           (enemy) => enemy.id === nextEnemy.id,
         );
-        return (
-          (previousEnemy && nextEnemy.health < previousEnemy.health) ||
-          turnLogs.some(
-            (log) =>
-              log.startsWith(`${nextEnemy.enemyName} took `) ||
-              log.includes(` on ${nextEnemy.enemyName}! Damage dealt:`),
-          )
-        );
+        return previousEnemy && nextEnemy.health < previousEnemy.health;
       })
       .map((enemy) => enemy.id);
 
@@ -273,12 +421,8 @@
         ]),
     );
 
-    feedbackTimeout = setTimeout(clearEntityFeedback, 700);
+    feedbackTimeout = setTimeout(clearEntityFeedback, 900);
   }
-
-  onDestroy(() => {
-    if (feedbackTimeout) clearTimeout(feedbackTimeout);
-  });
 
   async function fleeBattle() {
     try {
@@ -321,15 +465,24 @@
   }
 
   async function submitTurn() {
-    if (selectedCards.length !== 2 || isBattleConcluded || isSubmitting) return;
+    if (
+      selectedActions.length !== 2 ||
+      isBattleConcluded ||
+      isSubmitting
+    ) {
+      return;
+    }
     clearEntityFeedback();
     isSubmitting = true;
+    submissionFailed = false;
 
     const payload = {};
-    if (selectedCards[0]) payload.card_1 = selectedCards[0];
-    if (selectedCards[1]) payload.card_2 = selectedCards[1];
-    if (selectedTargets[0]) payload.target_1 = selectedTargets[0];
-    if (selectedTargets[1]) payload.target_2 = selectedTargets[1];
+    selectedActions.forEach((action, index) => {
+      payload[`card_${index + 1}`] = action.cardName;
+      if (action.targetId !== null) {
+        payload[`target_${index + 1}`] = action.targetId;
+      }
+    });
 
     try {
       const response = await fetch("http://localhost:3000/battle/fight", {
@@ -380,9 +533,9 @@
       if (data[3] && Array.isArray(data[3])) playerStatuses = data[3];
       if (Array.isArray(data[4])) enemies = nextEnemies;
 
-      selectedCards = [];
-      selectedTargets = [];
+      selectedActions = [];
     } catch (error) {
+      submissionFailed = true;
       battleLogs = [...battleLogs, `Error: ${error.message}`];
     } finally {
       isSubmitting = false;
@@ -397,12 +550,17 @@
       {isBattleWon ? "Continue" : "🏳️ Flee"}
     </button>
     <h2>Level {levelNumber}: {levelName}</h2>
+    {#if submissionFailed}
+      <button class="retry-turn-btn" on:click={submitTurn}>
+        Retry Turn
+      </button>
+    {/if}
     <div class="passive-badge">Passive: {activePassive}</div>
   </div>
 
   <div class="battle-layout">
     <div class="battle-log" bind:this={logContainer}>
-      {#each battleLogs as log}
+      {#each battleLogs as log, index (index)}
         <div class="log-entry">⚔️ {log}</div>
       {/each}
     </div>
@@ -410,75 +568,93 @@
     <div class="center-column">
       <div class="enemies-side">
         {#each enemies as enemy}
-          {@const tCount = getTargetCount(enemy.id)}
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          {@const actionNumbers = getTargetActionNumbers(enemy.id)}
           <div
-            class="entity-card enemy {enemy.isDead || enemy.isReviving
-              ? 'dead'
-              : ''} {tCount > 0 ? 'targeted' : ''} {damagedEnemyIds.includes(
-              enemy.id,
-            )
-              ? 'damage-feedback'
-              : statusAppliedEnemyIds.includes(enemy.id)
-                ? 'status-feedback'
-                : healedEnemyIds.includes(enemy.id)
-                  ? 'healing-feedback'
-                  : ''}"
-            on:click={() => addTarget(enemy.id)}
-            title={enemy.statuses?.length > 0
-              ? `Active Statuses: ${enemy.statuses.join(", ")}`
-              : "No active statuses"}
+            class="enemy-slot {actionNumbers.length > 0
+              ? 'has-queued-actions'
+              : ''}"
           >
-            <div class="pos-badge">Pos {enemy.id}</div>
-            {#if tCount > 0}
-              <div class="target-badge">🎯 x{tCount}</div>
-            {/if}
-
-            <h3>{enemy.enemyName}</h3>
-
-            {#if enemy.isDead}
-              <div class="fainted-label">💀 FAINTED</div>
-            {:else}
-              <div class="stats">
-                <span class="hp {enemyHealthFeedback[enemy.id] || ''}">
-                  ❤️ {enemy.health}
-                </span>
-                <span class="def">🛡️ {enemy.defense || 0}</span>
-              </div>
-              <div class="traits">
-                {#if enemy["undead?"]}
-                  <span class="trait-tag">💀 Undead</span>
-                {/if}
-                {#if enemy["speedy?"]}
-                  <span class="trait-tag">⚡ Speedy</span>
-                {/if}
-                {#if enemy["flying?"]}
-                  <span class="trait-tag">🕊️ Flying</span>
-                {/if}
-                {#each enemy.statuses || [] as status}
-                  <span class="status-tag">✨ {status}</span>
+            {#if actionNumbers.length > 0}
+              <div
+                class="action-target-badges enemy-action-badges"
+                aria-label={`Queued actions ${actionNumbers.join(", ")}`}
+              >
+                {#each actionNumbers as actionNumber}
+                  <span class="action-target-badge">{actionNumber}</span>
                 {/each}
               </div>
             {/if}
-          </div>
-        {/each}
-      </div>
 
-      <div class="hand">
-        {#each hand as card}
-          {@const count = getCardCount(card.cardName)}
-          <!-- svelte-ignore a11y-click-events-have-key-events -->
-          <div
-            class="action-card {count > 0 ? 'selected-action' : ''}"
-            on:click={() => addCard(card.cardName)}
-          >
-            <span>{card.cardName}</span>
-            {#if count > 0}
-              <span class="count-badge">x{count}</span>
-            {/if}
+            <div
+              class="entity-card enemy {activeDrag &&
+              hoveredTarget === enemy.id
+                ? 'drop-target'
+                : ''} {enemy.isDead || enemy.isReviving
+                ? 'dead'
+                : ''} {damagedEnemyIds.includes(enemy.id)
+                ? 'damage-feedback'
+                : statusAppliedEnemyIds.includes(enemy.id)
+                  ? 'status-feedback'
+                  : healedEnemyIds.includes(enemy.id)
+                    ? 'healing-feedback'
+                    : ''}"
+              role="button"
+              tabindex={enemy.isDead || enemy.isReviving ? -1 : 0}
+              data-battle-target={enemy.id}
+              aria-label={`Target ${enemy.enemyName}`}
+              on:keydown={(event) => handleTargetKeydown(event, enemy.id)}
+              title={enemy.statuses?.length > 0
+                ? `Active Statuses: ${enemy.statuses.join(", ")}`
+                : "No active statuses"}
+            >
+              <h3>{enemy.enemyName}</h3>
+
+              {#if enemy.isDead}
+                <div class="fainted-label">💀 FAINTED</div>
+              {:else}
+                <div class="stats">
+                  <span class="hp {enemyHealthFeedback[enemy.id] || ''}">
+                    ❤️ {enemy.health}
+                  </span>
+                  <span class="def">🛡️ {enemy.defense || 0}</span>
+                </div>
+                <div class="traits">
+                  {#if enemy["undead?"]}
+                    <span class="trait-tag">💀 Undead</span>
+                  {/if}
+                  {#if enemy["speedy?"]}
+                    <span class="trait-tag">⚡ Speedy</span>
+                  {/if}
+                  {#if enemy["flying?"]}
+                    <span class="trait-tag">🕊️ Flying</span>
+                  {/if}
+                  {#each enemy.statuses || [] as status}
+                    <span class="status-tag">✨ {status}</span>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           </div>
         {/each}
       </div>
+    </div>
+
+    <div class="hand">
+      {#each hand as card, cardIndex}
+        <div class="hand-card-slot">
+          <button
+            type="button"
+            class="action-card"
+            aria-label={`Drag ${card.cardName} to a target`}
+            on:pointerdown={(event) =>
+              startCardDrag(event, card.cardName, cardIndex, event.currentTarget)}
+            on:keydown={(event) =>
+              handleCardKeydown(event, card.cardName, cardIndex)}
+          >
+            <CardArt name={card.cardName} />
+          </button>
+        </div>
+      {/each}
     </div>
 
     <div class="player-side">
@@ -491,11 +667,30 @@
               ? 'healing-feedback'
               : playerAgilityConsumed
                 ? 'agility-feedback'
-                : ''}"
+                  : ''} {activeDrag && hoveredTarget === null
+              ? 'drop-target'
+              : ''}"
+        role="button"
+        tabindex="0"
+        data-battle-target="player"
+        aria-label={`Target ${player.playerName || activeUser} for automatic targeting`}
+        on:keydown={(event) => handleTargetKeydown(event, null)}
         title={playerStatuses.length > 0
           ? `Active Statuses: ${playerStatuses.join(", ")}`
           : "No active statuses"}
       >
+        {#if selectedActions.some((action) => action.targetId === null)}
+          <div
+            class="action-target-badges"
+            aria-label={`Queued actions ${getTargetActionNumbers(null).join(", ")}`}
+          >
+            {#each selectedActions as action, index}
+              {#if action.targetId === null}
+                <span class="action-target-badge">{index + 1}</span>
+              {/if}
+            {/each}
+          </div>
+        {/if}
         <h3>{player.playerName || activeUser}</h3>
         <div class="stats large-stats">
           <span class="hp {playerHealthFeedback}">❤️ {player.health}</span>
@@ -512,63 +707,6 @@
             {/each}
           </div>
         {/if}
-      </div>
-    </div>
-
-    <div class="controls-area">
-      <div class="action-panel">
-        <div class="queue-board">
-          <div class="queue-row">
-            <span class="queue-label">Cards ({selectedCards.length}/2):</span>
-            <div class="queue-slots">
-              {#each Array(2) as _, i}
-                {#if selectedCards[i]}
-                  <!-- svelte-ignore a11y-click-events-have-key-events -->
-                  <div class="queue-item filled" on:click={() => removeCard(i)}>
-                    {selectedCards[i]} <span class="remove-x">✖</span>
-                  </div>
-                {:else}
-                  <div class="queue-item empty">Empty</div>
-                {/if}
-              {/each}
-            </div>
-          </div>
-          <div class="queue-row">
-            <span class="queue-label">Targets:</span>
-            <div class="queue-slots">
-              {#each Array(2) as _, i}
-                {#if selectedTargets[i]}
-                  <!-- svelte-ignore a11y-click-events-have-key-events -->
-                  <div
-                    class="queue-item filled target-item"
-                    on:click={() => removeTarget(i)}
-                  >
-                    {getTargetLabel(selectedTargets[i])}
-                    <span class="remove-x">✖</span>
-                  </div>
-                {:else}
-                  <div class="queue-item empty">Empty</div>
-                {/if}
-              {/each}
-            </div>
-          </div>
-        </div>
-
-        <button
-          class="submit-turn-btn"
-          on:click={submitTurn}
-          disabled={isSubmitting ||
-            selectedCards.length !== 2 ||
-            isBattleConcluded}
-        >
-          {isBattleConcluded
-            ? "Battle Ended"
-            : isSubmitting
-              ? "Executing..."
-              : selectedCards.length !== 2
-                ? "Select 2 Cards"
-                : "🔥 Execute Turn"}
-        </button>
       </div>
     </div>
   </div>
@@ -617,7 +755,7 @@
 
   .battle-log {
     grid-area: log;
-    background: #1e1e24;
+    background: #111d34;
     border: 2px solid #3a3a48;
     border-radius: 8px;
     padding: 12px;
@@ -630,9 +768,21 @@
     box-sizing: border-box;
   }
   .log-entry {
-    font-family: monospace;
-    font-size: 13px;
+    font-family: "Press Start 2P", monospace;
+    font-size: 8px;
+    line-height: 2;
     color: #e0e0e0;
+    animation: log-entry-arrive 320ms ease-out both;
+  }
+  @keyframes log-entry-arrive {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
   .battle-layout {
@@ -643,10 +793,10 @@
         190px,
         0.9fr
       );
-    grid-template-rows: minmax(0, 1fr) 128px;
+    grid-template-rows: minmax(0, 1fr) minmax(150px, 0.42fr);
     grid-template-areas:
       "log center player"
-      "log controls controls";
+      "log hand player";
     gap: 12px;
   }
   .center-column {
@@ -663,6 +813,16 @@
     grid-template-rows: repeat(2, minmax(0, 1fr));
     gap: 12px;
     min-height: 0;
+    overflow: visible;
+  }
+  .enemy-slot {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+  }
+  .enemy-slot.has-queued-actions {
+    z-index: 10;
   }
   .player-side {
     grid-area: player;
@@ -671,6 +831,21 @@
     justify-content: stretch;
     min-width: 0;
     min-height: 0;
+  }
+  .hand {
+    grid-area: hand;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+  }
+  .hand-card-slot {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
   }
 
   .entity-card {
@@ -683,16 +858,21 @@
     transition: all 0.2s;
   }
   .enemy {
-    cursor: pointer;
+    cursor: crosshair;
     min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
   }
   .enemy:hover:not(.dead) {
     border-color: #555;
     transform: translateY(-2px);
   }
-  .enemy.targeted {
-    border-color: #d45c2a;
-    background: rgba(212, 92, 42, 0.15);
+  .enemy.drop-target,
+  .player-card.drop-target {
+    border-color: #ff9f43 !important;
+    box-shadow:
+      0 0 0 2px #ff9f43,
+      0 0 24px rgba(255, 159, 67, 0.75);
   }
   .enemy.dead {
     opacity: 0.35;
@@ -709,27 +889,42 @@
     margin-top: 15px;
     font-size: 14px;
   }
-  .pos-badge {
+  .action-target-badges {
     position: absolute;
-    top: -8px;
-    left: -8px;
-    background: #3a3a48;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: bold;
+    top: -10px;
+    left: -10px;
+    display: flex;
+    gap: 4px;
+    z-index: 3;
+    pointer-events: none;
   }
-  .target-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #d45c2a;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
+  .enemy-action-badges {
+    top: -10px;
+    left: -10px;
+  }
+  .action-target-badge {
+    display: grid;
+    place-items: center;
+    min-width: 26px;
+    height: 26px;
+    box-sizing: border-box;
+    background: #ff922b;
+    color: #1e1a29 !important;
+    border: 2px solid #ffe0ad;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.65);
+    font-size: 12px;
     font-weight: bold;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    animation: badge-pop 320ms cubic-bezier(0.2, 1.5, 0.5, 1) both;
+  }
+  @keyframes badge-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.3) rotate(-12deg);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) rotate(0);
+    }
   }
 
   .entity-card h3 {
@@ -771,6 +966,19 @@
     padding: 2px 5px;
     border-radius: 4px;
     border: 1px solid #d45c2a;
+    animation: status-tag-arrive 420ms cubic-bezier(0.2, 1.2, 0.4, 1) both;
+  }
+  @keyframes status-tag-arrive {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.82);
+      filter: drop-shadow(0 0 0 rgba(255, 136, 136, 0));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: drop-shadow(0 0 8px rgba(255, 136, 136, 0.8));
+    }
   }
   .player-status {
     background: #4da8da33;
@@ -780,7 +988,7 @@
 
   .player-card {
     border: 2px solid #4da8da;
-    background: rgba(77, 168, 218, 0.1);
+    background: #17344b;
     width: 100%;
     min-height: 0;
     height: 100%;
@@ -788,247 +996,134 @@
     flex-direction: column;
     justify-content: center;
     box-sizing: border-box;
-  }
-
-  .controls-area {
-    grid-area: controls;
-    display: flex;
-    align-items: stretch;
-    min-width: 0;
-    min-height: 0;
-  }
-  .hand {
-    display: flex;
-    gap: 8px;
-    align-items: stretch;
-    flex: 0 0 120px;
-    min-height: 0;
-  }
-  .action-panel {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(170px, 0.35fr);
-    align-items: stretch;
-    gap: 10px;
-    width: 100%;
-    min-width: 0;
+    cursor: crosshair;
   }
 
   .action-card {
-    flex: 1;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 100%;
     min-width: 0;
-    background: #3a3a48;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
+    min-height: 0;
+    background: transparent;
+    cursor: grab;
     font-weight: bold;
-    border: 2px solid transparent;
-    transition: 0.2s;
+    border: 0;
+    transition: transform 0.2s;
     user-select: none;
     text-align: center;
-    padding: 6px;
     position: relative;
     font-size: 13px;
-  }
-  .action-card:hover {
-    background: #484858;
-    transform: translateY(-2px);
-  }
-  .action-card.selected-action {
-    border-color: #4da8da;
-    background: #4da8da33;
-    transform: translateY(-4px);
-  }
-  .count-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: #4da8da;
-    color: #1e1e24;
-    font-size: 11px;
-    font-weight: bold;
-    padding: 1px 5px;
-    border-radius: 10px;
-  }
-
-  .queue-board {
-    background: #1a1a22;
-    border: 1px dashed #4da8da;
-    border-radius: 8px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    justify-content: center;
-  }
-  .queue-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .queue-label {
-    font-size: 12px;
-    color: #a0a0b0;
-    width: 45px;
-    text-align: right;
-    font-weight: bold;
-  }
-  .queue-slots {
-    display: flex;
-    gap: 6px;
-    flex: 1;
-  }
-
-  .queue-item {
-    flex: 1;
-    border-radius: 4px;
-    padding: 4px 6px;
-    font-size: 11px;
-    text-align: center;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .queue-item.empty {
-    background: #2b2b36;
-    color: #555;
-    border: 1px solid #3a3a48;
-    justify-content: center;
-  }
-  .queue-item.filled {
-    background: #4da8da33;
-    color: #4da8da;
-    border: 1px solid #4da8da;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  .queue-item.filled:hover {
-    background: #ff444433;
-    border-color: #ff4444;
-    color: #ff4444;
-  }
-  .queue-item.target-item {
-    background: #d45c2a33;
-    color: #d45c2a;
-    border-color: #d45c2a;
-  }
-  .queue-item.target-item:hover {
-    background: #ff444433;
-    border-color: #ff4444;
-    color: #ff4444;
-  }
-  .remove-x {
-    font-size: 10px;
-    opacity: 0.7;
-  }
-
-  .submit-turn-btn {
-    background: #d45c2a;
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    min-width: 0;
+    touch-action: none;
   }
   .damage-feedback {
-    animation: damage-feedback 650ms ease-out;
+    animation: damage-feedback 850ms ease-out;
   }
   .status-feedback {
-    animation: status-feedback 650ms ease-out;
+    animation: status-feedback 850ms ease-out;
   }
   .healing-feedback {
-    animation: healing-feedback 650ms ease-out;
+    animation: healing-feedback 850ms ease-out;
     z-index: 1;
   }
   .agility-feedback {
-    animation: agility-feedback 650ms ease-out;
+    animation: agility-feedback 850ms ease-out;
+  }
+  .damage-feedback,
+  .status-feedback,
+  .healing-feedback,
+  .agility-feedback {
+    position: relative;
+  }
+  .damage-feedback {
+    outline: 3px solid rgba(255, 65, 65, 0.9);
+    outline-offset: 3px;
+  }
+  .status-feedback {
+    outline: 3px solid rgba(78, 195, 255, 0.95);
+    outline-offset: 3px;
+  }
+  .healing-feedback {
+    outline: 3px solid rgba(70, 235, 130, 0.95);
+    outline-offset: 3px;
+  }
+  .agility-feedback {
+    outline: 3px solid rgba(255, 220, 70, 0.95);
+    outline-offset: 3px;
+  }
+  .retry-turn-btn {
+    background: #ff9f43;
+    color: #1e1a29;
+    border: 1px solid #ffe0ad;
+    padding: 8px 12px;
+    font-weight: bold;
+    cursor: pointer;
   }
   .damage-text {
-    animation: damage-text 650ms ease-out;
+    animation: damage-text 850ms ease-out;
   }
   .heal-text {
-    animation: heal-text 650ms ease-out;
+    animation: heal-text 850ms ease-out;
   }
   .agility-text {
-    animation: agility-text 650ms ease-out;
+    animation: agility-text 850ms ease-out;
   }
   @keyframes damage-feedback {
     0% {
-      transform: translateX(0);
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(255, 55, 55, 0);
+      filter: drop-shadow(0 0 0 rgba(255, 55, 55, 0));
     }
     20% {
-      transform: translateX(-4px);
-      box-shadow: 0 0 20px rgba(255, 55, 55, 0.8);
+      transform: translateX(-5px);
+      filter: drop-shadow(0 0 22px rgba(255, 55, 55, 1));
     }
     40% {
-      transform: translateX(4px);
-      box-shadow: 0 0 18px rgba(255, 55, 55, 0.65);
+      transform: translateX(5px);
+      filter: drop-shadow(0 0 20px rgba(255, 55, 55, 0.9));
     }
     60% {
       transform: translateX(-2px);
-      box-shadow: 0 0 12px rgba(255, 55, 55, 0.4);
+      filter: drop-shadow(0 0 14px rgba(255, 55, 55, 0.75));
     }
     100% {
       transform: translateX(0);
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(255, 55, 55, 0);
+      filter: drop-shadow(0 0 0 rgba(255, 55, 55, 0));
     }
   }
   @keyframes status-feedback {
     0% {
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(77, 168, 218, 0);
+      filter: drop-shadow(0 0 0 rgba(77, 168, 218, 0));
     }
     35% {
-      box-shadow: 0 0 22px rgba(77, 168, 218, 0.85);
+      filter: drop-shadow(0 0 24px rgba(77, 168, 218, 1));
     }
     100% {
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(77, 168, 218, 0);
+      filter: drop-shadow(0 0 0 rgba(77, 168, 218, 0));
     }
   }
   @keyframes agility-feedback {
     0% {
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(255, 220, 70, 0);
+      filter: drop-shadow(0 0 0 rgba(255, 220, 70, 0));
     }
     35% {
-      box-shadow: 0 0 22px rgba(255, 220, 70, 0.85);
+      filter: drop-shadow(0 0 26px rgba(255, 220, 70, 1));
     }
     100% {
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(255, 220, 70, 0);
+      filter: drop-shadow(0 0 0 rgba(255, 220, 70, 0));
     }
   }
   @keyframes healing-feedback {
     0% {
       transform: scale(1);
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(70, 220, 120, 0);
+      filter: drop-shadow(0 0 0 rgba(70, 220, 120, 0));
     }
     35% {
-      transform: scale(1.035);
-      box-shadow: 0 0 24px rgba(70, 220, 120, 0.85);
+      transform: scale(1.04);
+      filter: drop-shadow(0 0 26px rgba(70, 220, 120, 1));
     }
     100% {
       transform: scale(1);
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.3),
-        0 0 0 rgba(70, 220, 120, 0);
+      filter: drop-shadow(0 0 0 rgba(70, 220, 120, 0));
     }
   }
   @keyframes damage-text {
@@ -1071,15 +1166,14 @@
     .agility-feedback,
     .damage-text,
     .heal-text,
-    .agility-text {
+    .agility-text,
+    .log-entry,
+    .status-tag,
+    .action-target-badge {
       animation: none;
     }
   }
-  .submit-turn-btn:hover:not(:disabled) {
-    background: #e86a35;
-  }
-  .submit-turn-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .retry-turn-btn:hover {
+    background: #ffb765;
   }
 </style>

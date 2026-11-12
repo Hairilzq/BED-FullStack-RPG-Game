@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { showCards, showCurrentLevel, showEnemies, showLevels, showPassives, updateLoadout } from "../Controller/usersController.js";
+import { getUserBattleData, getUserData, getUserInventory, getUserProgression, showCards, showCurrentLevel, showEnemies, showLevels, showPassives, updateLoadout } from "../Controller/usersController.js";
 import { verifyToken } from "../Middleware/verifyToken.js";
 
 export const usersRoute = Router();
@@ -21,6 +21,18 @@ usersRoute.get('/showEnemies', showEnemies);
 
 /** Route to show all levels */
 usersRoute.get('/showLevels', showLevels);
+
+/** Route to show general user data */
+usersRoute.get('/showUserData', getUserData);
+
+/** Route to show general user battle data */
+usersRoute.get('/showUserBattleData', getUserBattleData);
+
+/** Route to show user inventory */
+usersRoute.get('/showUserInventory', getUserInventory);
+
+/** Route to show user level progression details - Made by AI */
+usersRoute.get('/showUserProgression', getUserProgression);
 
 /** Route to show the authenticated player's current level */
 usersRoute.get('/currentLevel', showCurrentLevel);

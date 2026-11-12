@@ -294,3 +294,976 @@ code {
     border-right-color: var(--border);
   }
 }
+
+:root {
+    color-scheme: light;
+    background: #3b82f6;
+    color: #18181b;
+    font-family: "Press Start 2P", monospace;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    background: #3b82f6;
+  }
+
+  body {
+    font-family: "Press Start 2P", monospace;
+    color: #18181b;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  nav,
+  button,
+  label,
+  .eyebrow,
+  .section-label,
+  .passive-label,
+  .badge-label,
+  .stat-list,
+  .stat-list small,
+  .item-count,
+  .level-status,
+  .level-index,
+  .level-row,
+  .type-badge {
+    font-family: "Press Start 2P", monospace !important;
+  }
+
+  h1 {
+    font-size: clamp(18px, 2.4vw, 28px) !important;
+    line-height: 1.65 !important;
+    letter-spacing: 0 !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: #18181b !important;
+  }
+
+  h2 {
+    font-size: clamp(12px, 1.5vw, 16px) !important;
+    line-height: 1.7 !important;
+    letter-spacing: 0 !important;
+  }
+
+  h3 {
+    font-size: clamp(10px, 1.2vw, 13px) !important;
+    line-height: 1.7 !important;
+  }
+
+  .app-container {
+    font-family: "Press Start 2P", monospace;
+  }
+
+  .game-nav {
+    margin-top: 12px !important;
+    padding: 8px 12px !important;
+    border: 4px solid #18181b !important;
+    border-bottom-width: 4px !important;
+    border-radius: 0 !important;
+    background: #fffdf5 !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+    color: #18181b !important;
+  }
+
+  .game-nav .tabs button,
+  .game-nav .player-name,
+  .game-nav .stat-list,
+  .game-nav .stat-list small {
+    color: #18181b !important;
+  }
+
+  .game-nav .tabs button.active::after {
+    height: 4px !important;
+    background: #facc15 !important;
+  }
+
+  .tab-btn.active {
+    background: #fde047 !important;
+  }
+
+  .item-card.selected {
+    background-color: #4da8da22 !important;
+  }
+
+  .item-card.selected-passive {
+    background-color: #d45c2a22 !important;
+  }
+
+  .level-row.selected {
+    background: #fde047 !important;
+  }
+
+  .auth-card,
+  .panel,
+  .tip-panel,
+  .profile-card,
+  .inventory-panel,
+  .inventory-item,
+  .details-panel,
+  .proposed-section,
+  .scroll-area,
+  .content-area,
+  .data-card,
+  .level-row,
+  .level-detail,
+  .battle-log,
+  .entity-card,
+  .action-card,
+  .item-card,
+  .state-message,
+  .loading-panel,
+  .message,
+  .equipped-item,
+  .passive-row,
+  .battle-stats > div,
+  .enemy-list span {
+    border: 4px solid #18181b !important;
+    border-radius: 0 !important;
+    background: #fffdf5 !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+    color: #18181b !important;
+  }
+
+  .slot {
+    border-radius: 0 !important;
+    border-width: 4px !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+  }
+
+  .profile-card *:not(.type-badge),
+  .auth-card *:not(.type-badge),
+  .inventory-panel *:not(.type-badge),
+  .inventory-item *:not(.type-badge),
+  .details-panel *:not(.type-badge),
+  .proposed-section *:not(.type-badge),
+  .scroll-area *:not(.type-badge),
+  .content-area *:not(.type-badge),
+  .data-card *:not(.type-badge),
+  .level-detail *:not(.type-badge),
+  .battle-log *:not(.type-badge),
+  .entity-card *:not(.type-badge),
+  .state-message *:not(.type-badge),
+  .loading-panel *:not(.type-badge),
+  .message *:not(.type-badge),
+  .panel *:not(.type-badge),
+  .tip-panel *:not(.type-badge),
+  .equipped-item *:not(.type-badge),
+  .passive-row *:not(.type-badge),
+  .battle-stats > div *:not(.type-badge) {
+    color: #18181b !important;
+  }
+
+  .data-card .traits span {
+    color: #e0e0e0 !important;
+  }
+
+  .battle-wrapper .action-card.selected-action {
+    background: transparent !important;
+  }
+
+  .battle-wrapper .trait-tag {
+    color: #a0a0b0 !important;
+  }
+
+  .battle-wrapper .status-tag {
+    color: #ff8888 !important;
+  }
+
+  .battle-wrapper .player-status {
+    color: #4da8da !important;
+  }
+
+  .battle-wrapper .fainted-label {
+    color: #ff6666 !important;
+  }
+
+  .auth-card .error-banner {
+    color: #ff8888 !important;
+  }
+
+  .level-badge {
+    border: 4px solid #18181b !important;
+    border-radius: 0 !important;
+    background: #facc15 !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+  }
+
+  .level-badge strong {
+    color: #18181b !important;
+    font-family: "Press Start 2P", monospace !important;
+    font-size: 24px !important;
+    text-shadow: none !important;
+  }
+
+  .battle-wrapper .header h2,
+  .page-heading h1,
+  .header h1,
+  .details-title,
+  .inventory-heading h2 {
+    color: #18181b !important;
+  }
+
+  .intro,
+  .subtitle,
+  .panel-copy,
+  .details-desc,
+  .description,
+  .tip-copy p:last-child,
+  .data-card p,
+  .inventory-item h3,
+  .battle-stats span,
+  .profile-detail,
+  .highest-label,
+  .xp-caption,
+  .empty-details,
+  .empty-inventory,
+  .level-name,
+  .locked-note,
+  .message,
+  .loading,
+  .empty {
+    font-size: 10px !important;
+    line-height: 1.8 !important;
+  }
+
+  p,
+  label,
+  .log-entry,
+  .toggle-text,
+  .loading-stats,
+  .stats-error,
+  .player-name,
+  .player-status,
+  .stat-list,
+  .stat-list small {
+    font-size: 10px !important;
+    line-height: 1.8 !important;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    border-radius: 0 !important;
+    font-family: "Press Start 2P", monospace !important;
+  }
+
+  button {
+    border: 4px solid #18181b !important;
+    background: #facc15 !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+    color: #18181b !important;
+    font-size: 10px !important;
+    line-height: 1.7 !important;
+    cursor: pointer;
+    transition: background-color 100ms steps(2, end), transform 100ms steps(2, end),
+      box-shadow 100ms steps(2, end);
+  }
+
+  button:hover:not(:disabled) {
+    background: #fde047 !important;
+  }
+
+  button:active:not(:disabled) {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 2px 2px 0 #18181b !important;
+  }
+
+  button:disabled {
+    cursor: not-allowed !important;
+    opacity: 0.6;
+  }
+
+  input,
+  select,
+  textarea {
+    border: 4px solid #18181b !important;
+    background: #fffdf5 !important;
+    color: #18181b !important;
+    font-size: 10px !important;
+    line-height: 1.7 !important;
+  }
+
+  input::placeholder {
+    color: #66615a !important;
+  }
+
+  .search-box {
+    border: 4px solid #18181b !important;
+    border-radius: 0 !important;
+    background: #fffdf5 !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+  }
+
+  .search-box input {
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .type-badge {
+    border-radius: 0 !important;
+    font-size: 8px !important;
+  }
+
+  .battle-error,
+  .error-banner,
+  .banner.error,
+  .state-message.error {
+    border: 4px solid #18181b !important;
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0 #18181b !important;
+  }
+
+  @media (max-width: 700px) {
+    .app-container {
+      padding-right: 12px;
+      padding-left: 12px;
+    }
+
+    .game-nav .brand-title {
+      width: 150px;
+    }
+}
+
+:root {
+  color-scheme: dark;
+  background: #181425;
+  color: #f4f4f6;
+}
+
+html,
+body,
+#app {
+  background: #181425 !important;
+}
+
+body,
+.app-container {
+  color: #f4f4f6 !important;
+}
+
+h1,
+h2,
+h3,
+.battle-wrapper .header h2,
+.page-heading h1,
+.header h1,
+.details-title,
+.inventory-heading h2 {
+  color: #FFEED6 !important;
+}
+
+.game-nav,
+.auth-card,
+.panel,
+.tip-panel,
+.profile-card,
+.inventory-panel,
+.details-panel,
+.proposed-section,
+.scroll-area,
+.content-area,
+.level-detail,
+.battle-log,
+.state-message,
+.loading-panel,
+.message,
+.battle-wrapper {
+  border: 3px solid #3b354d !important;
+  border-radius: 0 !important;
+  background: #262135 !important;
+  box-shadow: 4px 4px 0 #120e1c !important;
+  color: #f4f4f6 !important;
+}
+
+.data-card,
+.inventory-item,
+.item-card,
+.equipped-item,
+.passive-row,
+.battle-stats > div,
+.enemy-list span,
+.entity-card,
+.action-card,
+.slot,
+.level-row,
+.search-box,
+.search-box input,
+input,
+select,
+textarea {
+  border: 3px solid #3b354d !important;
+  border-radius: 0 !important;
+  background: #1e1a29 !important;
+  box-shadow: 3px 3px 0 #120e1c !important;
+  color: #f4f4f6 !important;
+}
+
+.game-nav .tabs button {
+  border-color: #3b354d !important;
+  background: #262135 !important;
+  color: #a099b5 !important;
+}
+
+.game-nav .tabs button.active,
+.game-nav .tabs button.active:hover {
+  border-color: #ffd166 !important;
+  background: #ffd166 !important;
+  color: #181425 !important;
+}
+
+.game-nav .tabs button.active::after {
+  display: none;
+}
+
+.catalog-wrapper .tabs .tab-btn {
+  border: 3px solid #3b354d !important;
+  background: #1e1a29 !important;
+  color: #a099b5 !important;
+}
+
+.catalog-wrapper .tabs .tab-btn.active,
+.catalog-wrapper .tabs .tab-btn.active:hover {
+  border-color: #ffd166 !important;
+  background: #ffd166 !important;
+  color: #181425 !important;
+}
+
+.game-nav .player-name,
+.game-nav .stat-list,
+.game-nav .stat-list small {
+  color: #FFEED6 !important;
+}
+
+.game-nav .stats-error,
+.game-nav .loading-stats,
+.game-nav .stat-list small {
+  color: #a099b5 !important;
+}
+
+.game-nav .battle-error {
+  border: 3px solid #3b354d !important;
+  background: #1e1a29 !important;
+  color: #FFEED6 !important;
+}
+
+.auth-card *:not(.type-badge),
+.panel *:not(.type-badge),
+.tip-panel *:not(.type-badge),
+.profile-card *:not(.type-badge),
+.inventory-panel *:not(.type-badge),
+.inventory-item *:not(.type-badge),
+.details-panel *:not(.type-badge),
+.proposed-section *:not(.type-badge),
+.scroll-area *:not(.type-badge),
+.content-area *:not(.type-badge),
+.data-card *:not(.type-badge),
+.level-detail *:not(.type-badge),
+.battle-log *:not(.type-badge),
+.entity-card *:not(.type-badge),
+.state-message *:not(.type-badge),
+.loading-panel *:not(.type-badge),
+.message *:not(.type-badge),
+.equipped-item *:not(.type-badge),
+.passive-row *:not(.type-badge),
+.battle-stats > div *:not(.type-badge),
+.level-row *:not(.type-badge) {
+  color: #f4f4f6 !important;
+}
+
+.eyebrow,
+.intro,
+.subtitle,
+.panel-copy,
+.details-desc,
+.description,
+.tip-copy p:last-child,
+.data-card p,
+.inventory-item h3,
+.battle-stats span,
+.profile-detail,
+.highest-label,
+.xp-caption,
+.empty-details,
+.empty-inventory,
+.level-name,
+.level-status,
+.level-index,
+.locked-note,
+.message,
+.loading,
+.empty,
+.input-group label,
+.toggle-text {
+  color: #a099b5 !important;
+}
+
+.auth-card .input-group label,
+.auth-card .toggle-text {
+  color: #a099b5 !important;
+}
+
+.level-row {
+  background: #1e1a29 !important;
+  color: #a099b5 !important;
+}
+
+.level-row:hover:not(:disabled) {
+  background: #3a3042 !important;
+}
+
+.level-row.selected,
+.level-row.selected:hover:not(:disabled) {
+  background: #3a3042 !important;
+}
+
+.slot.filled,
+.slot.filled-passive {
+  border-color: #ffd166 !important;
+  background: #1e1a29 !important;
+  color: #FFEED6 !important;
+}
+
+.game-nav,
+.game-nav button,
+.game-nav nav,
+.game-nav .player-name,
+.game-nav .stat-list,
+.game-nav .stat-list small {
+  font-family: "Press Start 2P", monospace !important;
+}
+
+button {
+  border: 3px solid #3b354d !important;
+  border-radius: 0 !important;
+  background: #ffd166 !important;
+  box-shadow: 3px 3px 0 #120e1c !important;
+  color: #181425 !important;
+  transition:
+    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease,
+    background-color 0.15s ease !important;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-3px) !important;
+  background: #ffdc83 !important;
+  box-shadow:
+    0 8px 16px rgb(0 0 0 / 40%),
+    0 0 10px rgb(255 209 102 / 20%) !important;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(-1px) scale(0.98) !important;
+  box-shadow: 0 3px 7px rgb(0 0 0 / 35%) !important;
+}
+
+.data-card,
+.inventory-item,
+.item-card,
+.equipped-item,
+.level-row,
+.entity-card.enemy,
+.action-card,
+.slot {
+  transition:
+    transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.15s ease,
+    border-color 0.15s ease !important;
+}
+
+.data-card:hover,
+.inventory-item:hover,
+.item-card:hover,
+.equipped-item:hover,
+.level-row:hover:not(:disabled),
+.entity-card.enemy:hover:not(.dead),
+.action-card:hover {
+  z-index: 1;
+  transform: translateY(-6px) !important;
+  border-color: #ffd166 !important;
+  box-shadow:
+    0 8px 16px rgb(0 0 0 / 40%),
+    0 0 10px rgb(255 209 102 / 20%) !important;
+}
+
+.data-card:active,
+.inventory-item:active,
+.item-card:active,
+.equipped-item:active,
+.level-row:active:not(:disabled),
+.entity-card.enemy:active:not(.dead),
+.action-card:active {
+  transform: translateY(-1px) scale(0.98) !important;
+}
+
+.item-card.selected,
+.item-card.selected-passive,
+.level-row.selected,
+.action-card.selected-action,
+.profile-card.level-card {
+  border-color: #ffd166 !important;
+}
+
+.item-card.selected {
+  background: #1e1a29 !important;
+}
+
+.item-card.selected-passive {
+  background: #1e1a29 !important;
+}
+
+.level-row.selected {
+  background: #3a3042 !important;
+}
+
+.level-badge {
+  border: 3px solid #ffd166 !important;
+  border-radius: 0 !important;
+  background: #1e1a29 !important;
+  box-shadow: 4px 4px 0 #120e1c !important;
+}
+
+.level-badge strong {
+  color: #FFEED6 !important;
+}
+
+.type-badge {
+  border-radius: 0 !important;
+}
+
+.search-box,
+.search-box input {
+  box-shadow: none !important;
+}
+
+input::placeholder {
+  color: #a099b5 !important;
+}
+
+.battle-wrapper .trait-tag {
+  border: 1px solid #3b354d;
+  border-radius: 0;
+  background: #1e1a29;
+  color: #a099b5 !important;
+}
+
+.battle-wrapper .status-tag {
+  border-color: #d45c2a !important;
+  background: #d45c2a33 !important;
+  color: #ff8888 !important;
+}
+
+.battle-wrapper .player-status {
+  border-color: #4da8da !important;
+  background: #4da8da33 !important;
+  color: #4da8da !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.card-art-tile {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.card-art-tile:hover:not(:disabled) {
+  transform: translateY(-6px) !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow:
+    0 8px 16px rgb(0 0 0 / 40%),
+    0 0 10px rgb(255 209 102 / 20%) !important;
+}
+
+.card-art-tile.selected .card-art {
+  outline: 3px solid #ffd166;
+  outline-offset: -3px;
+}
+
+.card-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #1e1a29 !important;
+  box-shadow: none !important;
+}
+
+.card-art img {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.loadout-wrapper .grid {
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  align-items: start;
+}
+
+.loadout-wrapper .item-card {
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.loadout-wrapper .item-card:hover {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.loadout-wrapper .item-card.selected .card-art,
+.loadout-wrapper .item-card.selected-passive .card-art {
+  outline: 3px solid #ffd166;
+  outline-offset: -3px;
+}
+
+.loadout-wrapper .details-content > .card-art {
+  width: min(100%, 220px);
+  margin: 0 auto 18px;
+}
+
+.loadout-wrapper .slot {
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.loadout-wrapper .slot .card-art {
+  height: 100%;
+}
+
+.loadout-wrapper .empty-cards {
+  grid-column: 1 / -1;
+  color: #a099b5;
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+.equipped-item {
+  min-width: 0;
+}
+
+.equipped-item .card-art {
+  flex: 0 0 42px;
+  width: 42px;
+  aspect-ratio: 3 / 4;
+}
+
+.inventory-item > .card-art {
+  flex: 1;
+  min-height: 108px;
+  margin-bottom: 10px;
+}
+
+.battle-wrapper .action-card {
+  overflow: visible !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.battle-wrapper .action-card .card-art {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.battle-wrapper .entity-card.drop-target {
+  border-color: #ff9f43 !important;
+  box-shadow:
+    0 0 0 2px #ff9f43,
+    0 0 24px rgb(255 159 67 / 75%) !important;
+}
+
+.profile-page .highest-value {
+  color: #ffd166 !important;
+}
+
+.profile-page .highest-level-number {
+  color: #a099b5 !important;
+}
+
+.profile-page .inventory-browser {
+  grid-template-columns: minmax(0, 1fr) minmax(165px, 0.8fr);
+}
+
+.profile-page .inventory-item {
+  min-height: 0 !important;
+  padding: 0 !important;
+  overflow: visible;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.profile-page .inventory-item:hover {
+  transform: translateY(-4px) !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.profile-page .inventory-item.selected .card-art {
+  outline: 3px solid #ffd166;
+  outline-offset: -3px;
+}
+
+.profile-page .inventory-item > .card-art {
+  min-height: 0;
+  margin: 0;
+}
+
+.battle-wrapper .battle-log {
+  border-color: #304568 !important;
+  background: #101b32 !important;
+}
+
+.battle-wrapper .battle-log .log-entry {
+  color: #e6edff !important;
+  font-family: "Press Start 2P", monospace !important;
+}
+
+.battle-wrapper .entity-card.player-card {
+  border-color: #4da8da !important;
+  background: #17344b !important;
+}
+
+.battle-wrapper .action-target-badge {
+  border: 2px solid #ffe0ad !important;
+  background: #ff922b !important;
+  color: #1e1a29 !important;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 65%) !important;
+}
+
+.battle-wrapper .action-card:hover {
+  z-index: 4;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(-8px) scale(1.07) !important;
+  transform-origin: center bottom;
+}
+
+.battle-wrapper .action-card.dragging-card,
+.battle-wrapper .action-card.dragging-card:hover {
+  z-index: 1000;
+  cursor: grabbing !important;
+  opacity: 1 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 55%) !important;
+  transform: scale(0.96) !important;
+}
+
+.profile-page .inventory-detail {
+  border: 3px solid #3b354d !important;
+  background: #1e1a29 !important;
+  box-shadow: 4px 4px 0 #090810 !important;
+}
+
+.profile-page .inventory-detail h3 {
+  color: #ffeed6 !important;
+}
+
+.profile-page .inventory-panel .inventory-detail .eyebrow {
+  color: #ffd166 !important;
+}
+
+.profile-page .inventory-panel .inventory-detail > p:last-child {
+  color: #a099b5 !important;
+}
+
+.menu-page .equipped-list {
+  display: flex !important;
+  flex-flow: row nowrap;
+  align-items: flex-start;
+  justify-content: flex-start !important;
+  gap: 4px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.menu-page .equipped-item {
+  flex: 0 0 88px !important;
+  display: block;
+  min-height: 0;
+  width: 88px;
+  padding: 0;
+  overflow: visible;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.menu-page .equipped-item:hover {
+  transform: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.menu-page .equipped-item .card-art {
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 3 / 4;
+}
+
+.loadout-wrapper .details-art {
+  width: min(100%, 220px);
+  margin: 0 auto 18px;
+}
+
+.loadout-wrapper .slot-art {
+  width: 100%;
+  height: 100%;
+}
+
+.loadout-wrapper .slot-art .card-art {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.catalog-wrapper .card-detail-panel {
+  border: 3px solid #3b354d !important;
+  background: #1e1a29 !important;
+  box-shadow: 4px 4px 0 #090810 !important;
+}
+
+@media (max-width: 700px) {
+  .profile-page .inventory-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

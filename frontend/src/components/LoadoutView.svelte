@@ -1,8 +1,8 @@
 <script>
   import { onMount } from "svelte";
-
-  export let activeUser;
-  export let navigate;
+  import { flip } from "svelte/animate";
+  import { fade, fly } from "svelte/transition";
+  import CardArt from "./CardArt.svelte";
 
   // State for available options (fetched from DB)
   let availableCards = [];
@@ -23,20 +23,53 @@
   // Fetch available cards and passives when the page loads
   onMount(async () => {
     try {
-      const [cardsRes, passivesRes] = await Promise.all([
+      const [cardsRes, passivesRes, inventoryRes] = await Promise.all([
         fetch("http://localhost:3000/users/showCards", {
           credentials: "include",
         }),
         fetch("http://localhost:3000/users/showPassives", {
           credentials: "include",
         }),
+        fetch("http://localhost:3000/users/showUserInventory", {
+          credentials: "include",
+        }),
       ]);
 
-      if (!cardsRes.ok || !passivesRes.ok)
-        throw new Error("Failed to load catalog data");
+      const [cardsData, passivesData, inventoryData] = await Promise.all([
+        cardsRes.json(),
+        passivesRes.json(),
+        inventoryRes.json(),
+      ]);
+      const failedResponse = [
+        [cardsRes, cardsData],
+        [passivesRes, passivesData],
+        [inventoryRes, inventoryData],
+      ].find(([response]) => !response.ok);
+      if (failedResponse) {
+        const [response, data] = failedResponse;
+        throw new Error(
+          data.error || `Failed to load loadout data (${response.status})`,
+        );
+      }
+      if (
+        !Array.isArray(cardsData) ||
+        !Array.isArray(passivesData) ||
+        !Array.isArray(inventoryData)
+      ) {
+        throw new Error("Loadout data was returned in an invalid format");
+      }
 
-      availableCards = await cardsRes.json();
-      availablePassives = await passivesRes.json();
+      const ownedItemNames = new Set(
+        inventoryData
+          .filter((item) => Number(item.itemQuantity) > 0)
+          .map((item) => item.itemName),
+      );
+      availableCards = cardsData.filter((card) =>
+        ownedItemNames.has(card.cardName),
+      );
+      availablePassives = passivesData.filter((passive) =>
+        ownedItemNames.has(passive.passiveName),
+      );
     } catch (err) {
       message = err.message;
       isError = true;
@@ -110,7 +143,6 @@
 
 <div class="loadout-wrapper">
   <div class="header">
-    <button class="back-btn" on:click={() => navigate("menu")}>⬅ Menu</button>
     <h1>Update Loadout</h1>
   </div>
 
@@ -121,7 +153,11 @@
       <!-- LEFT COLUMN: DETAILS PANEL -->
       <div class="details-panel">
         {#if hoveredItem}
+          {#key hoveredItem.cardName || hoveredItem.passiveName}
           <div class="details-content">
+            <div class="details-art" in:fly={{ x: -18, duration: 200 }} out:fade={{ duration: 120 }}>
+              <CardArt name={hoveredItem.cardName || hoveredItem.passiveName} />
+            </div>
             <h2 class="details-title">
               {hoveredItem.cardName || hoveredItem.passiveName}
             </h2>
@@ -147,21 +183,9 @@
                   hoveredItem.passiveDesc ||
                   "No description provided."}
               </p>
-
-              <!-- Dynamic DB Attributes Loop -->
-              <div class="details-stats">
-                {#each Object.entries(hoveredItem) as [key, value]}
-                  <!-- Added cardDesc and CardDesc to the exclusion list -->
-                  {#if !["cardName", "passiveName", "Type", "type", "id", "_id", "description", "cardDesc", "CardDesc", "passiveDesc"].includes(key) && value !== null && value !== ""}
-                    <div class="stat-line">
-                      <strong class="stat-key">{key}:</strong>
-                      <span class="stat-val">{value}</span>
-                    </div>
-                  {/if}
-                {/each}
-              </div>
             </div>
           </div>
+          {/key}
         {:else}
           <div class="empty-details">
             <div class="empty-icon">🔍</div>
@@ -192,16 +216,11 @@
                     on:mouseleave={() => (hoveredItem = null)}
                   >
                     {#if selectedCards[i]}
-                      <span class="slot-name">{selectedCards[i].cardName}</span>
-                      {#if selectedCards[i].Type || selectedCards[i].type}
-                        <span
-                          class="type-badge {(
-                            selectedCards[i].Type || selectedCards[i].type
-                          ).toLowerCase()}"
-                        >
-                          {selectedCards[i].Type || selectedCards[i].type}
-                        </span>
-                      {/if}
+                      {#key selectedCards[i].cardName}
+                        <div class="slot-art" in:fade={{ duration: 220 }}>
+                          <CardArt name={selectedCards[i].cardName} />
+                        </div>
+                      {/key}
                     {:else}
                       +
                     {/if}
@@ -221,7 +240,15 @@
                 }}
                 on:mouseleave={() => (hoveredItem = null)}
               >
-                {selectedPassive ? selectedPassive.passiveName : "+"}
+                {#if selectedPassive}
+                  {#key selectedPassive.passiveName}
+                    <div class="slot-art" in:fade={{ duration: 220 }}>
+                      <CardArt name={selectedPassive.passiveName} />
+                    </div>
+                  {/key}
+                {:else}
+                  +
+                {/if}
               </div>
             </div>
           </div>
@@ -244,8 +271,7 @@
           <div class="scroll-area">
             <h3>Available Cards</h3>
             <div class="grid">
-              {#each availableCards as card}
-                {@const cardType = card.Type || card.type}
+              {#each availableCards as card, index (card.cardName)}
                 <!-- svelte-ignore a11y-click-events-have-key-events -->
                 <div
                   class="item-card {selectedCards.find(
@@ -253,38 +279,38 @@
                   )
                     ? 'selected'
                     : ''}"
+                  animate:flip={{ duration: 300 }}
+                  in:fly={{ y: 30, duration: 300, delay: index * 60 }}
                   on:click={() => toggleCard(card)}
                   on:mouseenter={() => (hoveredItem = card)}
                   on:mouseleave={() => (hoveredItem = null)}
                 >
-                  <strong>{card.cardName || "Unknown Card"}</strong>
-                  {#if cardType}
-                    <div class="type-badge-container">
-                      <span class="type-badge {cardType.toLowerCase()}"
-                        >{cardType}</span
-                      >
-                    </div>
-                  {/if}
+                  <CardArt name={card.cardName || "Unknown Card"} />
                 </div>
               {/each}
+              {#if availableCards.length === 0}
+                <p class="empty-cards">No cards are currently in your inventory.</p>
+              {/if}
             </div>
           </div>
 
           <div class="scroll-area">
             <h3>Available Passives</h3>
             <div class="grid">
-              {#each availablePassives as passive}
+              {#each availablePassives as passive, index (passive.passiveName)}
                 <!-- svelte-ignore a11y-click-events-have-key-events -->
                 <div
                   class="item-card {selectedPassive?.passiveName ===
                   passive.passiveName
                     ? 'selected-passive'
                     : ''}"
+                  animate:flip={{ duration: 300 }}
+                  in:fly={{ y: 30, duration: 300, delay: index * 60 }}
                   on:click={() => selectPassive(passive)}
                   on:mouseenter={() => (hoveredItem = passive)}
                   on:mouseleave={() => (hoveredItem = null)}
                 >
-                  <strong>{passive.passiveName || "Unknown Passive"}</strong>
+                  <CardArt name={passive.passiveName || "Unknown Passive"} />
                 </div>
               {/each}
             </div>
@@ -314,19 +340,6 @@
     color: #4da8da;
     margin: 0;
   }
-  .back-btn {
-    background-color: #3a3a48;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  .back-btn:hover {
-    background-color: #484858;
-  }
-
   /* 2-Column Layout */
   .main-layout {
     display: flex;
@@ -377,41 +390,6 @@
     color: #d0d0e0;
     line-height: 1.5;
     margin-bottom: 20px;
-  }
-
-  .details-stats {
-    background: #1e1e24;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid #3a3a48;
-  }
-
-  /* UPDATED STAT STYLES */
-  .stat-line {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    font-size: 13px;
-    color: #e0e0e0;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px dashed #3a3a48;
-  }
-  .stat-line:last-child {
-    margin-bottom: 0;
-    border-bottom: none;
-  }
-  .stat-key {
-    color: #4da8da;
-    text-transform: capitalize;
-    font-size: 11px;
-    letter-spacing: 0.5px;
-  }
-  .stat-val {
-    color: #d0d0e0;
-    margin-top: 2px;
-    line-height: 1.4;
-    word-break: break-word;
   }
 
   /* Right Column: Original Content */
@@ -604,9 +582,15 @@
     color: #88ff9e;
     border: 1px solid #4cff6a;
   }
-  .type-badge.utility {
+  .type-badge.assistive {
     background-color: #a855f733;
-    color: #c084fc;
+    color: #d8b4fe;
     border: 1px solid #a855f7;
+  }
+  .type-badge.distruptive,
+  .type-badge.disruptive {
+    background-color: #090b0f;
+    color: #f5f6f8;
+    border: 1px solid #090b0f;
   }
 </style>

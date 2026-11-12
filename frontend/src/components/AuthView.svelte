@@ -85,6 +85,14 @@
 </script>
 
 <div class="auth-wrapper">
+  <div class="auth-artwork">
+    <img
+      class="auth-title-image"
+      src="/GameImages/iconImages/GameTitle.png"
+      alt="Tales of Valor"
+    />
+  </div>
+
   <div class="auth-card">
     <h1>{isLoginMode ? "Login" : "Create Account"}</h1>
 
@@ -121,18 +129,60 @@
 <style>
   .auth-wrapper {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
+    gap: clamp(24px, 4vw, 64px);
     flex: 1; /* Pushes card to middle of screen */
+    min-height: calc(100svh - 24px);
+  }
+
+  .auth-artwork {
+    display: flex;
+    flex: 0 1 60%;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .auth-title-image {
+    display: block;
+    width: 100%;
+    max-height: 80svh;
+    object-fit: contain;
   }
 
   .auth-card {
+    flex: 0 1 400px;
     background-color: #2b2b36;
     padding: 40px;
     border-radius: 12px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
     width: 100%;
     max-width: 400px;
+    min-width: 0;
+  }
+
+  @media (max-width: 760px) {
+    .auth-wrapper {
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+      padding: 24px 0;
+    }
+
+    .auth-artwork {
+      flex: 0 1 auto;
+      width: 100%;
+    }
+
+    .auth-title-image {
+      width: min(100%, 520px);
+      max-height: 35svh;
+    }
+
+    .auth-card {
+      flex: 0 1 auto;
+    }
   }
 
   h1 {

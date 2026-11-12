@@ -1,4 +1,36 @@
-import { addStatus, checkLoadout, createBattleEnemy, createBattlePlayer, deleteActiveBattleEnemy, deleteStatus, deleteStatusByName, getActiveBattle, getActiveBattleEnemies, getCard, getCardAbility, getEnemyMove, getEnemyStats, getLevelByUser, getLevelEnemies, getLoadout, getPassive, getPlayerStats, getStatusByEnemy, getStatusByPlayer, getStatusByNameAndPlayer, getStatusByNameAndEnemy, getStatusEffect, resetActiveBattleEnemy, resetActiveBattlePlayer, resetStatusTracker, updateActiveBattleTableEnemy, updateActiveBattleTablePlayer, updateLevelProgress, updateStatuses } from "../Model/battlesModel.js";
+import { addStatus, checkLoadout, createBattleEnemy, createBattlePlayer, deleteActiveBattleEnemy, deleteStatus, deleteStatusByName, getActiveBattle, getActiveBattleEnemies, getCard, getCardAbility, getEnemyMove, getEnemyStats, getLevelEnemies, getLoadout, getPassive, getPlayerStats, getStatusByEnemy, getStatusByPlayer, getStatusByNameAndPlayer, getStatusByNameAndEnemy, getStatusEffect, resetActiveBattleEnemy, resetActiveBattlePlayer, resetStatusTracker, updateActiveBattleTableEnemy, updateActiveBattleTablePlayer, updateLevelProgress, updateStatuses } from "../Model/battlesModel.js";
+import { getUserDataByUsername, getUserLevelSystemData, updateUserExperienceAndLevel, updateUserGoldCount, updateUserHighestLevel } from "../Model/usersModel.js";
+
+/** Choose a level to play, based on player input. Checks their highest level to prevent them selecting a level they havent unlocked yet */
+export const chooseCurrentLevel = async (req, res) => {
+  try {
+    let checkForBattle = await getActiveBattle();
+    checkForBattle = checkForBattle[0];
+    if (checkForBattle) {
+      return res.status(400).json({ "error": "A battle is already active and running!" })
+    }
+    const player_Name = req.user.id;
+    const { chosenLevel } = req.body;
+
+    // Input Guard
+    if (typeof (chosenLevel) !== "number" || chosenLevel === undefined) {
+      return res.status(401).json({ "error": "Invalid input, please input an integer only" });
+    }
+    let getLevelID = await getUserDataByUsername(player_Name);
+    getLevelID = getLevelID[0];
+    const highestLevel = getLevelID.levelHighest;
+
+    // Game progression check
+    if (chosenLevel > highestLevel) {
+      return res.status(401).json({ "error": "Cannot select a level you haven't unlocked!" })
+    } else {
+      let updateUserLevelProgress = await updateLevelProgress(player_Name, chosenLevel);
+    }
+    return res.status(200).json({ "message": "successfully selected level!" });
+  } catch (error) {
+    return res.status(500).json({ "error": "Internal server error" });
+  }
+}
 
 /** Initiate levels for players to progress */
 export const initiateLevels = async (req, res) => {
@@ -9,7 +41,51 @@ export const initiateLevels = async (req, res) => {
       return res.status(400).json({ "error": "A battle is already active and running!" })
     }
     const playerName = req.user.id;
+    // Fetch level ID the player is on
+    let getLevelID = await getUserDataByUsername(playerName);
+    getLevelID = getLevelID[0];
+    let currentLevel = getLevelID.levelProgress;
 
+    // Fetches enemy stats for the given level, and pushes them to the activeBattleTableEnemy
+    let getLevel = await getLevelEnemies(currentLevel);
+    getLevel = getLevel[0];
+    const enemyList = [getLevel.enemyName_1, getLevel.enemyName_2, getLevel.enemyName_3, getLevel.enemyName_4];
+    let enemyStatsPrint = [];
+    // Set up gold/experience gain from battles
+    let goldTotalCount = 0;
+    let experienceTotalCount = 0;
+
+    // Pushing Enemy(s) stats into activeBattleTableEnemy
+    for (let index = 0; index < enemyList.length; index++) {
+      if (enemyList[index]) {
+        let EnemyStatistics = await getEnemyStats(enemyList[index]);
+        EnemyStatistics = EnemyStatistics[0];
+        goldTotalCount += EnemyStatistics.gold;
+        experienceTotalCount += EnemyStatistics.experience;
+
+        let newBattle = await createBattleEnemy(
+          index + 1,
+          EnemyStatistics.enemyName,
+          EnemyStatistics.health,
+          EnemyStatistics.defense,
+          EnemyStatistics.flying,
+          EnemyStatistics.undead,
+          EnemyStatistics.speedy,
+          false,
+          0
+        );
+        enemyStatsPrint.push({
+          "id": index + 1,
+          "enemyPosition": index + 1,
+          "enemyName": EnemyStatistics.enemyName,
+          "health": EnemyStatistics.health,
+          "defense": EnemyStatistics.defense,
+          "undead?": EnemyStatistics.undead,
+          "flying?": EnemyStatistics.flying,
+          "speedy?": EnemyStatistics.speedy
+        });
+      }
+    }
     //get player stats and load them into active battle table
     let PlayerStatistics = await getPlayerStats(playerName);
     PlayerStatistics = PlayerStatistics[0];
@@ -36,45 +112,10 @@ export const initiateLevels = async (req, res) => {
       PlayerStatistics.intelligence,
       PlayerStatistics.passiveName,
       false,
+      goldTotalCount,
+      experienceTotalCount,
       0
     );
-    // Fetch level ID the player is on
-    let getLevelID = await getLevelByUser(playerName);
-    getLevelID = getLevelID[0];
-    let currentLevel = getLevelID.levelProgress;
-
-    let getLevel = await getLevelEnemies(currentLevel);
-    getLevel = getLevel[0];
-    const enemyList = [getLevel.enemyName_1, getLevel.enemyName_2, getLevel.enemyName_3, getLevel.enemyName_4];
-    let enemyStatsPrint = [];
-
-    // Pushing Enemy(s) stats into activeBattleTableEnemy
-    for (let index = 0; index < enemyList.length; index++) {
-      if (enemyList[index]) {
-        let EnemyStatistics = await getEnemyStats(enemyList[index]);
-        EnemyStatistics = EnemyStatistics[0];
-
-        let newBattle = await createBattleEnemy(
-          index + 1,
-          EnemyStatistics.enemyName,
-          EnemyStatistics.health,
-          EnemyStatistics.defense,
-          EnemyStatistics.flying,
-          EnemyStatistics.undead,
-          EnemyStatistics.speedy,
-          false,
-          0
-        );
-        enemyStatsPrint.push({
-          "enemyName": EnemyStatistics.enemyName,
-          "health": EnemyStatistics.health,
-          "defense": EnemyStatistics.defense,
-          "undead?": EnemyStatistics.undead,
-          "flying?": EnemyStatistics.flying,
-          "speedy?": EnemyStatistics.speedy
-        });
-      }
-    }
     let replyList = [];
     const playerLoadout = await getLoadout(playerName);
 
@@ -103,10 +144,9 @@ export const resetBattle = async (req, res) => {
     const player_Name = req.user.id;
 
     // Fetch level ID the player is on. NEW; no longer resets the player's level progress
-    let getLevelID = await getLevelByUser(player_Name);
+    let getLevelID = await getUserDataByUsername(player_Name);
     getLevelID = getLevelID[0];
     let currentLevel = getLevelID.levelProgress;
-
     let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel);
 
     const resetCurrentBattlePlayer = await resetActiveBattlePlayer();
@@ -142,7 +182,7 @@ export const fightBattle = async (req, res) => {
     return res.status(400).json({ "error": "card_1 or card_2 is not a known card" })
   };
   //#endregion
-  //#region Data retrieval and processing
+  //#region Data retrieval and processing/staging
   /** Pulls data from the Active Battle Table. If no battle is active, return error. Else, proceed */
   let checkForBattle = await getActiveBattle();
   checkForBattle = checkForBattle[0];
@@ -171,6 +211,10 @@ export const fightBattle = async (req, res) => {
   let turnCounter = PlayerStatistics.turnCounter;
   turnCounter += 1;
 
+  // Get gold/experience earned from battle
+  let goldToEarn = PlayerStatistics.goldEarned;
+  let experienceToEarn = PlayerStatistics.experienceEarned;
+
   if (matchResolved) {
     return res.status(400).json({ "error": "Battle has concluded!" })
   }
@@ -192,10 +236,14 @@ export const fightBattle = async (req, res) => {
   if (!isInLoadout) {
     return res.status(404).json({ "error": "chosen cards are not found in player loadout!" }); // - Last input validation guard. Past this, it is pure code processing
   }
-  // Pulls levelProgress from user's table by player
-  let getLevelID = await getLevelByUser(player_Name);
-  getLevelID = getLevelID[0];
-  let currentLevel = getLevelID.levelProgress;
+  // Pulls levelProgress, userExperience, gold and playerLevel from user's table by playerName (which is the same thing). Used for updating external user data later on (like gold count, userLevel)
+  let getPlayerData = await getUserDataByUsername(player_Name);
+  getPlayerData = getPlayerData[0];
+  let currentLevel = getPlayerData.levelProgress;
+  let highestLevel = getPlayerData.levelHighest;
+  let userGold = getPlayerData.gold;
+  let userCurrentLevel = getPlayerData.userLevel;
+  let userCurrentExperienceCount = getPlayerData.userExperience;
 
   // After loadout guard, can now push player cards into actionsTimeline
   let actionsTimeline = [];
@@ -239,7 +287,7 @@ export const fightBattle = async (req, res) => {
   // Fetch all active enemies in the battle ONCE; the server mutates this local copy during battle and writes it to the db once a battle turn is finished.
   let getEnemies = await getActiveBattleEnemies();
   for (let index = 0; index < getEnemies.length; index++) {
-    if (getEnemies[index].health > 0) { //If the enemy is 'alive', allow them to take their turn
+    if (getEnemies[index].health > 0) { //If the enemy is 'alive', allow them to take their turn. Prevents 'dead' undead enemies from acting that turn
       const currentEnemy = getEnemies[index];
       const enemyIndex = currentEnemy.enemy_Id;
       let enemyCurrentMoveset = await getEnemyMove(currentEnemy.enemyName, currentEnemy.current_turn_index); //Model automatically sources move with current turn index
@@ -545,7 +593,7 @@ export const fightBattle = async (req, res) => {
         continue;
       }
     }
-    //#region Player's combat math and logic calculator. Skipped if player is stunned
+    //#region 2a. Player's combat math and logic calculator. Skipped if player is stunned
     if (action.action_entity === "Player" && !matchResolved && !player_stunned) {
       // target enemy variables
       let enemy_Name = targetEnemy.enemyName;
@@ -1001,7 +1049,7 @@ export const fightBattle = async (req, res) => {
       // Remove dead enemies (if any), natural filter
       getEnemies = getEnemies.filter(enemy => enemy.dead === false); // Remove dead enemies from the list. Undead enemies are not marked as 'dead'
       //#endregion
-      //#region Enemy's combat math and logic calculator
+      //#region 2b. Enemy's combat math and logic calculator
     } else if (action.action_entity === "Enemy" && !matchResolved && !isDodged && currentEnemy.health > 0) {
       let enemy_Name = currentEnemy.enemyName;
       let enemy_health = currentEnemy.health;
@@ -1214,7 +1262,7 @@ export const fightBattle = async (req, res) => {
   } //End of combat loop
   //#endregion
   //#region 3. Post Combat Logic and Battle Summary
-  //Additional combat logic here
+  //Additional combat logic here - Mainly Passive Logic
   // Addtitional Checks if agility goes above 100 (from either play buffs or enemy influence)
   if (player_agility > 100) {
     player_agility = 100;
@@ -1237,7 +1285,7 @@ export const fightBattle = async (req, res) => {
   if (player_intelligence > 100) {
     player_intelligence = 100;
   }
-  /** Presents the final stats of the player once combat math has been completed. Will display even after match resolution */
+  //#region 3a. Battle Summary and Database Updating
   let statusSummary = await getStatusByPlayer(player_Name);
 
   for (let index = 0; index < statusSummary.length; index++) {
@@ -1259,6 +1307,7 @@ export const fightBattle = async (req, res) => {
     let statusLog = [];
 
     enemyLog.push({
+      "id": enemy_slot,
       "enemyPosition": enemy_slot,
       "enemyName": enemy_Name,
       "health": enemy_health,
@@ -1296,29 +1345,6 @@ export const fightBattle = async (req, res) => {
       enemy.dead
     );
   }
-  // Update user's table by increasing levelProgress by 1 if the player won or set back to 1 if the player lost
-  if (matchResolved && Victor === player_Name && currentLevel === 7) { // <-- Make sure to change this lmao
-    resolutionLog.push("Congratulations! You defeated the King! Level progress set back to 1");
-    let updateUserLevelProgress = await updateLevelProgress(player_Name, 1); // Allows for replayability
-
-    let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
-    let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
-    let clearStatusTracker = await resetStatusTracker();
-  } else if (matchResolved && Victor === player_Name) {
-    resolutionLog.push("You've unlocked the next level!")
-    let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel + 1);
-
-    let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
-    let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
-    let clearStatusTracker = await resetStatusTracker();
-  } else if (matchResolved && Victor !== player_Name) {
-    resolutionLog.push("Better luck next time!")
-    let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel);
-
-    let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
-    let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
-    let clearStatusTracker = await resetStatusTracker();
-  }
   // FULL JSON PAYLOAD SUMMARY
   replyList.push(battleLog);
   replyList.push(resolutionLog);
@@ -1331,7 +1357,62 @@ export const fightBattle = async (req, res) => {
   });
   replyList.push(playerStatusesLog);
   replyList.push(enemyLog);
+  //#endregion
+  //#region 3b. External Game Administration
+  // Update user's table by increasing levelProgress by 1 if the player won or set back to 1 if the player lost, as well as clearing battle states
+  if (matchResolved && Victor === player_Name && currentLevel === 7) { // <-- Make sure to change this lmao
+    resolutionLog.push("Congratulations! You've defeated the King! Level progress set back to 1");
+    let updateUserLevelProgress = await updateLevelProgress(player_Name, 1); // Allows for replayability
 
+    let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
+    let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
+    let clearStatusTracker = await resetStatusTracker();
+  } else if (matchResolved && Victor === player_Name) {
+    resolutionLog.push("You've unlocked the next level!")
+    let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel + 1);
+    if (currentLevel === highestLevel) {
+      highestLevel += 1;
+      let updateHighestLevel = await updateUserHighestLevel(player_Name, highestLevel);
+    }
+    let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
+    let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
+    let clearStatusTracker = await resetStatusTracker();
+  } else if (matchResolved && Victor !== player_Name) {
+    resolutionLog.push("Better luck next time!")
+    let updateUserLevelProgress = await updateLevelProgress(player_Name, currentLevel);
+
+    let resetCurrentBattlePlayer = await resetActiveBattlePlayer();
+    let resetCurrentBattleEnemy = await resetActiveBattleEnemy();
+    let clearStatusTracker = await resetStatusTracker();
+  }
+  // Updates user data like gold, experience, highest level, etc
+  if (matchResolved && Victor === player_Name) {
+    // First, add earned gold to the user's table
+    const updateUserGold = await updateUserGoldCount(player_Name, userGold + goldToEarn);
+
+    // Second, add user experience. If experience passes a certain threshold, level up
+    let currentExperienceCount = userCurrentExperienceCount + experienceToEarn;
+    let getLevelBand = await getUserLevelSystemData(userCurrentLevel);
+
+    if (getLevelBand.length === 0) {
+      // Max level, can't level up anymore
+    } else {
+      getLevelBand = getLevelBand[0];
+      let currentExperienceNeeded = getLevelBand.experienceNeeded;
+
+      if (currentExperienceCount >= currentExperienceNeeded) {
+        // Level up!
+        userCurrentLevel += 1;
+        userCurrentExperienceCount = currentExperienceCount - currentExperienceNeeded;
+        const updateUserLevelData = await updateUserExperienceAndLevel(player_Name, userCurrentExperienceCount, userCurrentLevel);
+      } else {
+        // Update experience earned so that it persists
+        userCurrentExperienceCount = currentExperienceCount;
+        const updateUserLevelData = await updateUserExperienceAndLevel(player_Name, userCurrentExperienceCount, userCurrentLevel);
+      }
+    }
+  }
+  //#endregion
   return res.status(200).json(replyList)
   //#endregion
   //#endregion

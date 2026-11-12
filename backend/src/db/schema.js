@@ -13,8 +13,29 @@ export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   username: text('username').notNull(),
   password: text('password').notNull(),
+  gold: integer('gold').notNull(),
+  userExperience: integer('playerExperience').notNull(),
+  userLevel: integer('playerLevel').notNull(),
   levelProgress: integer('levelProgress').notNull(),
+  levelHighest: integer('levelHighest').notNull()
 });
+
+/** User inventory - stores player items (like cards, passives, and craftables). Server checks if the player has the cards/passives in their inventory before pushing battle states */
+export const userInventory = sqliteTable('userInventory', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  username: text('playerName').notNull(),
+  itemName: text('itemName').notNull(),
+  itemQuantity: text('itemQuantity').notNull(),
+  itemType: text('itemType').notNull()
+})
+
+/** User leveling system - tracks the experience needed to level up to the next level */
+export const userLevelSystem = sqliteTable('userLevelSystem', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  levelNumber: integer('levelNumber').notNull(),
+  experienceNeeded: integer('experienceNeeded').notNull(),
+  levelTitle: text('levelTitle').notNull()
+})
 
 /** Player Stats - This is an unchanging record that holds the baseline stats of a player. These stats are pulled later on by an active battle database for reference */
 export const playerStats = sqliteTable('playerStats', {
@@ -36,6 +57,8 @@ export const enemyStats = sqliteTable('enemyStats', {
   flying: boolean('flying?').notNull(),
   undead: boolean('undead?').notNull(),
   speedy: boolean('speedy?').notNull(),
+  gold: integer('gold').notNull(),
+  experience: integer('experience').notNull(),
   enemyDesc: text('enemyDesc').notNull()
 })
 
@@ -51,6 +74,7 @@ export const cardDB = sqliteTable('cardDB', {
   statusEffectInflicted: text('statusEffectInflicted').notNull(),
   cardAbility: text('cardAbility').notNull(),
   abilityLevel: integer('abilityLevel').notNull(),
+  cardCost: integer('cardCost').notNull(),
   cardDesc: text('cardDesc').notNull()
 })
 /** Card ability databases - stores the stats and combat logic of card abilities used by certain cards */
@@ -75,6 +99,7 @@ export const passivesDB = sqliteTable('passivesDB', {
   defense: integer('defense').notNull(),
   agilityRegen: integer('agilityRegen').notNull(),
   intelligenceRegen: integer('intelligenceRegen').notNull(),
+  cardCost: integer('cardCost').notNull(),
   passiveDesc: text('passiveDesc').notNull(),
 })
 
@@ -118,6 +143,8 @@ export const activeBattleTablePlayer = sqliteTable('activeBattleTablePlayer', {
   intelligence: integer('intelligence').notNull(),
   passiveName: text('passiveName').notNull(),
   turnCounter: integer('turnCounter').notNull(),
+  goldEarned: integer('goldEarned').notNull(),
+  experienceEarned: integer('experienceEarned').notNull(),
   matchResolved: boolean('matchResolved?').notNull()
 })
 
@@ -155,4 +182,14 @@ export const levelTemplates = sqliteTable('levelTemplates', {
   enemyName_3: text('enemyName_3').notNull(),
   enemyName_4: text('enemyName_4').notNull(),
   levelDesc: text('levelDesc').notNull()
+})
+// Shop Roster Table - Holds items (generic) for sale in the shop; requires rerolling shop through verified endpoint to refresh items
+export const shopRoster = sqliteTable('shopRoster', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  username: text('username').notNull(),
+  itemName: text('itemName').notNull(),
+  itemQuantity: integer('itemQuantity').notNull(),
+  itemType: text('itemType').notNull(),
+  itemCost: integer('itemCost').notNull(),
+  discounted: boolean('discounted').notNull()
 })

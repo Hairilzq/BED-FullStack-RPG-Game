@@ -2,6 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { activeBattleTableEnemy, activeBattleTablePlayer, activeStatusesTracker, cardAbilitiesDB, cardDB, enemyMovesetDB, enemyStats, levelTemplates, passivesDB, playerLoadout, playerStats, statusEffectDatabase, users } from "../db/schema.js";
 import { db } from "../db/connection.js";
 
+/** Manages battle operations such as handling all the activeBattle tables, retriving necassary battle data, as well as general game functions */
+
 //#region - General Get Routes
 /** Get all cards for showing */
 export const getAllCards = async () => {
@@ -92,15 +94,6 @@ export const getCardAbility = async (abilityName, abilityLevel) => {
       eq(cardAbilitiesDB.abilityLevel, abilityLevel)
     ));
   return getRecords;
-}
-// Calls user's table using playerName to get the level ID that player is currently on
-export const getLevelByUser = async (username) => {
-  const getRecords = await db
-    .select()
-    .from(users)
-    .where(eq(users.username, username));
-  return getRecords;
-
 }
 // Calls levelTemplates to get the enemies for a specific level
 export const getLevelEnemies = async (levelID) => {
@@ -217,7 +210,7 @@ export const getActiveBattleEnemies = async () => {
   return getRecords;
 }
 /** Creates a new battle by pulling Player stats from the respective database */
-export const createBattlePlayer = async (playerName, health, defense, agility, intelligence, passiveName, matchResolved, turnCounter) => {
+export const createBattlePlayer = async (playerName, health, defense, agility, intelligence, passiveName, matchResolved, goldTotalCount, experienceTotalCount, turnCounter) => {
   const newRecord = await db
     .insert(activeBattleTablePlayer)
     .values({
@@ -228,6 +221,8 @@ export const createBattlePlayer = async (playerName, health, defense, agility, i
       intelligence: intelligence,
       passiveName: passiveName,
       matchResolved: matchResolved,
+      goldEarned: goldTotalCount,
+      experienceEarned: experienceTotalCount,
       turnCounter: turnCounter
     })
     .returning();

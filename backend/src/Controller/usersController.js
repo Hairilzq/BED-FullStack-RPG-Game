@@ -1,7 +1,7 @@
 import { changePassive, clearLoadout, createLoadout, getActiveBattle, getAllCards, getAllEnemies, getAllLevels, getAllPassives, getCard, getCardById, getLoadout, getPassive, updateLoadoutName, updatePlayerStatsName } from "../Model/battlesModel.js";
-import { getCurrentLevelByUsername, getUser, updateUserPassword } from "../Model/usersModel.js";
-import bcrypt from 'bcrypt';
+import { addUserInventoryItem, checkUserInventoryItem, getCurrentLevelByUsername, getUserDataByUsername, getUserGoldCount, getUserInventoryItems, getUserLevelSystemData, getUserLoadout, getUserStats, updateUserGoldCount } from "../Model/usersModel.js";
 
+//#region General GET routes
 /** Get the authenticated player's current level name */
 export const showCurrentLevel = async (req, res) => {
   try {
@@ -14,7 +14,60 @@ export const showCurrentLevel = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+//** General function to fetch user data for displaying */
+export const getUserData = async (req, res) => {
+  try {
+    const getData = await getUserDataByUsername(req.user.id);
+    return res.status(200).json(getData);
+  } catch (error) {
+    return res.status(500).json({ "error": "Internal server error" });
+  }
+}
+//** General function to fetch user data for displaying */
+export const getUserInventory = async (req, res) => {
+  try {
+    const getData = await getUserInventoryItems(req.user.id);
+    return res.status(200).json(getData);
+  } catch (error) {
+    return res.status(500).json({ "error": "Internal server error" });
+  }
+}
+/** Return the user's current experience and the threshold for their next level - Made by AI */
+export const getUserProgression = async (req, res) => {
+  try {
+    const userRecords = await getUserDataByUsername(req.user.id);
+    const user = userRecords[0];
+    if (!user) {
+      return res.status(404).json({ error: "Player data could not be found" });
+    }
 
+    const nextLevelRecords = await getUserLevelSystemData(user.userLevel);
+    const levelTitle = nextLevelRecords[0]?.levelTitle ?? "King";
+    const experienceNeeded = nextLevelRecords[0]?.experienceNeeded ?? null;
+    return res.status(200).json({
+      userLevel: user.userLevel,
+      levelTitle,
+      userExperience: user.userExperience,
+      experienceNeeded,
+      experienceToNextLevel:
+        experienceNeeded === null
+          ? null
+          : Math.max(0, experienceNeeded - user.userExperience),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
+//** General function to fetch user battle data (like loadouts, battle stats) */
+export const getUserBattleData = async (req, res) => {
+  try {
+    const getData = await getUserStats(req.user.id);
+    const getLoadoutData = await getUserLoadout(req.user.id);
+    return res.status(200).json([getData, getLoadoutData]);
+  } catch (error) {
+    return res.status(500).json({ "error": "Internal server error" });
+  }
+}
 /** Get all cards */
 export const showCards = async (req, res) => {
   try {
@@ -51,6 +104,7 @@ export const showLevels = async (req, res) => {
     return res.status(500).json({ "error": "Internal server error" });
   }
 }
+//#endregion
 /** Update player loadout based on name */
 export const updateLoadout = async (req, res) => {
   try {
@@ -68,13 +122,13 @@ export const updateLoadout = async (req, res) => {
     // Get username from token
     const username = req.user.id;
 
+    // Cleans the input, fetches the cards/passive, and checks they're real (old guard, might as well keep)
     const clean_card_1 = card_1.trim();
     const clean_card_2 = card_2.trim();
     const clean_card_3 = card_3.trim();
     const clean_card_4 = card_4.trim();
     const clean_card_5 = card_5.trim();
     const clean_passive = passiveName.trim();
-
     let checkCard_1 = await getCard(clean_card_1);
     let checkCard_2 = await getCard(clean_card_2);
     let checkCard_3 = await getCard(clean_card_3);
@@ -87,9 +141,23 @@ export const updateLoadout = async (req, res) => {
     checkCard_4 = checkCard_4[0];
     checkCard_5 = checkCard_5[0];
     checkPassive = checkPassive[0];
+
     if (!checkCard_1 || !checkCard_2 || !checkCard_3 || !checkCard_4 || !checkCard_5 || !checkPassive) {
       return res.status(404).json({ "error": "1 or more cards (or passive) are not recognised" });
     }
+    // NEW: Validation guard to check that the cards are in the player's inventory, ensures no cheating!
+    let checkInv_1 = await checkUserInventoryItem(username, clean_card_1);
+    let checkInv_2 = await checkUserInventoryItem(username, clean_card_2);
+    let checkInv_3 = await checkUserInventoryItem(username, clean_card_3);
+    let checkInv_4 = await checkUserInventoryItem(username, clean_card_4);
+    let checkInv_5 = await checkUserInventoryItem(username, clean_card_5);
+    let checkInv_6 = await checkUserInventoryItem(username, clean_passive);
+
+    if (checkInv_1.length === 0 || checkInv_2.length === 0 || checkInv_3.length === 0 || checkInv_4.length === 0 || checkInv_5.length === 0 || checkInv_6.length === 0) {
+      return res.status(404).json({ "error": "1 or more cards (or passive) are not recognised" });
+    }
+
+    // Clear loadout and update the contents with the new desired loadout. This may change in the future
     let clearCurrentLoadout = await clearLoadout(username);
     let createNewLoadout = await createLoadout(username, clean_card_1);
     createNewLoadout = await createLoadout(username, clean_card_2);
