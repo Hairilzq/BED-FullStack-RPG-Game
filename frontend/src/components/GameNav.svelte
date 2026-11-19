@@ -106,8 +106,22 @@
         <span class="stats-error" title={statsError}>Stats unavailable</span>
       {:else}
         <span><small>LVL</small>{userLevel}</span>
-        <span><small>EXP</small>{userExperience}</span>
-        <span><small>GOLD</small>{gold}</span>
+        <span>
+          <img
+            class="stat-icon"
+            src="/GameImages/iconImages/Experience.png"
+            alt="Experience"
+          />
+          {userExperience}
+        </span>
+        <span>
+          <img
+            class="stat-icon"
+            src="/GameImages/iconImages/Gold.png"
+            alt="Gold"
+          />
+          {gold}
+        </span>
       {/if}
     </div>
   </div>
@@ -137,7 +151,7 @@
     padding: 0;
     border: 0;
     background: transparent;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .brand-home:focus-visible {
@@ -167,7 +181,7 @@
     color: #9aa6b7;
     font-size: 14px;
     font-weight: 650;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition: color 160ms ease, background 160ms ease;
   }
 
@@ -187,7 +201,7 @@
   }
 
   .tabs button:disabled {
-    cursor: wait;
+    cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto;
     opacity: 0.65;
   }
 
@@ -207,6 +221,7 @@
 
   .stat-list {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 14px;
     color: #e7bd77;
@@ -215,8 +230,20 @@
     font-weight: 700;
   }
 
+  .stat-list > span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .stat-icon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
   .stat-list small {
-    margin-right: 5px;
     color: #8491a3;
     font-size: 9px;
     letter-spacing: 0.08em;
@@ -283,8 +310,5 @@
       font-size: 12px;
     }
 
-    .stat-list small {
-      margin-right: 3px;
-    }
   }
 </style>

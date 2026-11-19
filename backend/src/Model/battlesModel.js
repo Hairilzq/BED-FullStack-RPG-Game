@@ -185,6 +185,19 @@ export const updatePlayerStatsName = async (cleanRequestedUser, newUsername) => 
     .where(eq(playerStats.playerName, cleanRequestedUser));
   return updatedRecord;
 }
+/** Update playerStats by playerName. Used for updating base stats based on passive buffs/debuffs */
+export const updatePlayerStatsByName = async (username, health, defense, agility, intelligence) => {
+  const updateRecord = await db
+    .update(playerStats)
+    .set({
+      health: health,
+      defense: defense,
+      agility: agility,
+      intelligence: intelligence
+    })
+    .where(eq(playerStats.playerName, username));
+  return updateRecord;
+}
 //#endregion
 //#region - Battle Functions
 /** Fetches a status effect from the status effect database according to the target effect */

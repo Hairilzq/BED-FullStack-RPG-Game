@@ -142,9 +142,9 @@ const passiveDatabase = [
   { passiveName: 'Aggressive', damage: 1, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become stronger and fiercer! Gain 1 more damage on damaging moves, but lose 5 health points' },
   { passiveName: 'Armoured', damage: 0, healthDebuff: 10, heal: 0, healthBuff: 0, defense: 1, agilityRegen: 0, intelligenceRegen: 0, cardCost: 1000, passiveDesc: 'Become tougher and rigid! Gain 1 defense point permanently, but lose 10 health points' },
   { passiveName: 'Healthy', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 10, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 0, passiveDesc: 'Become bigger and better! Gain 10 extra health points' },
-  { passiveName: 'Rejuvenate', damage: 0, healthDebuff: 0, heal: 1, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become resilient and robust! Gain 1 health point every card you play' },
+  { passiveName: 'Rejuvenate', damage: 0, healthDebuff: 0, heal: 2, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become resilient and robust! Gain 2 health point each turn' },
   { passiveName: 'Steadfast', damage: 0, healthDebuff: 0, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 5, intelligenceRegen: 0, cardCost: 750, passiveDesc: 'Become quick and agile! Gain 5 agility points each turn' },
-  { passiveName: 'Astute', damage: 0, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 3, cardCost: 750, passiveDesc: 'Become wise and clever! Gain 3 intelligence points each turn, but lose 5 health points' }
+  { passiveName: 'Astute', damage: 0, healthDebuff: 5, heal: 0, healthBuff: 0, defense: 0, agilityRegen: 0, intelligenceRegen: 5, cardCost: 750, passiveDesc: 'Become wise and clever! Gain 3 intelligence points each turn, but lose 5 health points' }
   //{ passiveName: 'Blood Stone', damage: 5, healthDebuff: 0, heal: 3, healthBuff: 25, defense: 2, agilityRegen: 5, intelligenceRegen: 5, cardCost: 0, passiveDesc: 'Wield the power of the Blood Stone! True power is yours!' } - Blank out for now; secret item
 ]
 

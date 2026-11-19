@@ -1,6 +1,65 @@
 # Changelog
 All version updates and their associated changes are listed here (Versions are usually done per commit). Arranged from latest to oldest updates. Changes are either listed as `Added`, `Removed`, `Fixed`, or `Changed`. Versions are listed in this format x.y.z, where x is for major game changes/overhauls, y is for minor version upgrades and z is for small fixes/tweaks to a version.
 
+## Version 2.1 - Battle Event Sequencer and a Gamified UI
+Following the major frontend changes in the previous version, this new version brings a new way to feel and experience battles, making it feel like a proper game! Accompanying it are some minor changes to passives and some bug fixes.
+
+### Battle Event Sequencer
+- `Added`: Added a Battle Event Sequencer to the frontend! Previously, battle state after each turn will be updated in a single go; All battle log messages are pushed immediately, entity stats are morphed without clear intent, and status effects are spawned in instantly. This gave the player a lot of information to process at a time, which can be frustrating. Now, the frontend will queue the 'events' that happened in a turn into a 'sequencer' which plays the events out one by one, showing the entities involved by highlighting their UI cards, and what changed such as stat changes or status effects being spawned in. A 1.5 second delay is given between each event so that the player can process each event one at a time. With this change, it is much easier for the player to know what happened, and feels more like an interactive game!
+
+### BattleView UI Upgrades and Changes
+- `Added`: Added enemy portrait art to BattleView! Enemies are now displayed using their own custom image art (it is only fair that the enemies get some, since the cards/passives do!), which gives a clearer picture of what enemy the player is facing, and makes the battle feel more real!
+
+- `Added`: Added floating numbers/messages/effects to BattleView! Whenever an entity takes damage, heals, or applies defense/removes defense, a floating popup will jump out, which gives a clearer picture of what happened. This applies to status effects applied to an entity. Other special effects like "DODGED!" or "BLOCKED!" are spawned in as well.
+
+- `Added`: Added custom cursors to BattleView! The cursor during battle defaults to using a 'Thinking' cursor, then uses a 'Target' cursor when hovering over entity UI cards, then lastly a 'Disabled' cursor used during playback animations (which is also used elsewhere in the game's UI)
+
+- `Changed`: Changed how health is displayed on the enemy/player UI card. Enemy/player UI cards now use a 'health bar' display which gives a clearer view of how much health an enemy has. Retains the numeric display for clarity, and shows the max health of an enemy/player!
+
+- `Changed`: Changed how defense is displayed on the enemy (only for now) UI card. Enemies with a defense stat more than 0 will have a blue shield icon/badge displayed at the bottom right of the card, with a numeric value for how much defense said enemy has. This icon/badge will disappear the moment it goes below 0, dynamically coming/going depending on the enemy's current defense. This makes it easier to tell if an enemy has defense!
+
+- `Changed`: Changed how the player's passive is displayed in BattleView. Previously, it used a string tag to show the player what passive they have on. Now, uses the passive's image art which is placed at the top righthand corner of the player's UI card. It looks much cleaner this way, removing the need for strings!
+
+- `Changed`: Changed how status effects are displayed/rendered to BattleView. Rather than using string tags for status effects active on an entity, the frontend now uses new 'status effect icon art' that is spawned in the top bar section of each entity! These icons are much easier to read and tell what the status effect is, and it does not pollute the entity UI cards!
+
+- `Changed`: Changed how enemy trait are displayed to BattleView. Rather than using string tags to indicate an enemy trait, the frontend now uses new 'trait icon art' that is placed on the right side of each enemy! These icons are much easier to read and tell what traits the enemy has (especially if that enemy has multiple traits) and it does not pollute the enemy UI cards, giving more breathing room to the UI card!
+
+- `Changed`: Changed the BattleView to use custom icon art for representing stat fields (and other relevant stuff) instead of emojis
+
+- `Changed`: Updated the GameScreenshots folder to use the new look of BattleView
+
+### General UI changes
+- `Changed`: Changed how the Battle stats in the GameMenu are represented. Rather than using text strings to indicate 'health' or 'agility', it uses custom game icon art to represent the respective stats
+
+- `Changed`: Changed how 'gold' and 'experience' are shown throughout the game. Much like the shop, the game now represents gold using the game's 'Gold' icon, same for 'experience'. This change can be seen in the upper tab bar, the PlayerProfile page, and in the GameCatalog (for enemy drops)
+
+- `Changed`: Changed the enemy catalog in GameCatalog to show enemy portraits instead, then features a side panel (much like cards catalog and passives catalog) that features the enemies details, which includes using the new trait icons for showing enemy traits, and the gold/exp icons to show gold/exp drops.
+
+### Passive Changes
+- `Changes`: Changed how Passive data is registered within the game. Previously, stat buffs/debuffs from passives were only accounted for during Battle; it did not affect the basePlayerStats elsewhere. Now, upon updating your loadout or creating a new user, the server automatically pushes your new morphed stats based on your passives. This is reflected within the GameMenu in the 'Battle Stats' field.
+
+- `Changed`: Reworked the 'Rejuvenate' passive; Now heals 2 health points per turn, in a similar fashion to Steadfast and Astute, rather than healing a health point per card played. This means that the player will always heal 2 health points per turn regardless of whether they were stunned or played any cards that turn
+
+- `Changed`: Buffed 'Astute' to recover 5 intelligence point per turn instead of 3
+
+### Balance Changes
+- `Changed`: Nerfed Brace to recover 5 health points instead of 10 during downtime turn
+
+### Bug Fixes
+- `Fixed`: Fixed a bug where enemies with the 'AffectAll' ability attached to their move would apply the player's own status effect on enemies rather than their own. This comes from a reference bug where I used a variable also used by the player without clearing it. Now it uses a direct referrence to the applied status
+
+- `Fixed`: Fixed a bug where enemies who raise or lower their defence using a status effect do not return to their base defense on the next turn, resulting in their defense either staying down (for enemies who lower their defense) or their defense constantly going up (for enemies who raise their defense). A new base stat reset is added at the start of each turn being processed so now their defense reflects accurately on the frontend and in the backend
+
+- `Fixed`: Fixed a bug where applying the 'Marked' effect on a single enemy now causes the player to deal 2 additional damage to all enemies. This was due to bad coding practices on my end. Now the server checks if the target enemy is marked, then evaluates the additional damage. 'Marked' effect is also not exclusive to the Slingshot and can be leveraged by all Offensive cards (allowing synergy)
+
+- `Fixed`: Fixed a bug where Cleansing/Removing the 'Curse' effect on the player whilst playing a card that inflicts a positive status effect on the player will not come through (as the server still thinks the player is 'Cursed'). Cleanse now automatically flicks the boolean that states that the player is 'Cursed', allowing for Cleansing and applying a stauts effect in the same turn
+
+- `Fixed`: Fixed an error where new players cannot sign up; this was due to an inventory insertion error where the server expects additional data, but the wasnt provided with such (from the addition of itemType field in userInventory)
+
+- `Fixed`: Fixed a visual bug where status effects that have expired are still displayed on the frontend. This is due to how the server tracks expired status effects; status effects that have elapsed their duration (statusDuration = 0) will still be carried by the server, but removed next turn, though their effect will not persist while expired. Now, status effects with a statusDuration of 0 will be removed by the server and not carried forward
+
+- `Fixed`: Fixed a visual bug where the target indicator for cards played on enemies do not render. This is due to a Svelte issue where an entity UI card that is not explicitly updated by server input will not inccur this change...something like that. Now, target indicators are visible on enemy UI cards when a card is directed at them
+
 ## Version 2.0 - Adventurous New Interface and Player Profiles
 Major Game UI overhaul, completely revitalizing the style and feel of the game. New style and vibe, animated buttons and displays, cleaner displays, new game art, and enhanced quality of life features. Accompanying this new interface comes the addition of Player profiles, inventories, and a mock shop. Players now posses gold and user levels to flex accounts, own cards/passives rather than accessing everything, and can purchase cards/passives with their gold, adding towards game progression!
 

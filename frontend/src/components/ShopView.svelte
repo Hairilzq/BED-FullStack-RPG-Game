@@ -249,9 +249,7 @@
   onDestroy(clearRevealTimers);
 </script>
 
-<svelte:head>
-  <title>Item Shop | Tales of Valor</title>
-</svelte:head>
+<svelte:head></svelte:head>
 
 <section class="shop-page">
   <header class="shop-heading">
@@ -736,7 +734,9 @@
     border: none;
     background: transparent;
     box-shadow: none;
-    cursor: pointer;
+    cursor:
+      url("/GameImages/iconImages/Normal_Cursor.png") 0 0,
+      auto;
     perspective: 900px;
     transform-style: preserve-3d;
   }
@@ -772,7 +772,9 @@
   }
 
   .card-display:disabled {
-    cursor: wait;
+    cursor:
+      url("/GameImages/iconImages/Disabled_cursor.png") 0 0,
+      auto;
   }
 
   /* REMOVED overflow: hidden from .card-flipper! */
@@ -1037,7 +1039,9 @@
     font: inherit;
     font-size: 11px;
     font-weight: 800;
-    cursor: pointer;
+    cursor:
+      url("/GameImages/iconImages/Normal_Cursor.png") 0 0,
+      auto;
     transition:
       filter 150ms ease,
       transform 150ms ease,
@@ -1053,7 +1057,9 @@
     border-color: #4b5057;
     background: #343940;
     color: #89919b;
-    cursor: not-allowed;
+    cursor:
+      url("/GameImages/iconImages/Disabled_cursor.png") 0 0,
+      auto;
   }
 
   .button-price {

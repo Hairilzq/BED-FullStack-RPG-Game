@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { addPlayerStats, addUser, getUsername } from '../Model/loginModel.js';
-import { createLoadout } from "../Model/battlesModel.js";
+import { createLoadout, getPassive, updatePlayerStatsByName } from "../Model/battlesModel.js";
 import { addUserInventoryItem } from "../Model/usersModel.js";
 
 export const handleLogin = async (req, res) => {
@@ -40,40 +40,43 @@ export const handleLogin = async (req, res) => {
   }
 }
 export const handleSignup = async (req, res) => {
-  //try {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  // Input guard
-  if (!username || !password || username.trim().length === 0 || password.trim().length === 0) {
-    return res.status(400).json({ "error": "Please provide a username and password" });
+    // Input guard
+    if (!username || !password || username.trim().length === 0 || password.trim().length === 0) {
+      return res.status(400).json({ "error": "Please provide a username and password" });
+    }
+    // Validation guard
+    const checkUser = await getUsername(username);
+    if (checkUser[0]) {
+      return res.status(409).json({ "error": "Username already exists" });
+    }
+    // Create password hash and store user record
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const storeUser = await addUser(username, hashedPassword);
+
+    // Create loadout, add inventory items and playerStats for new user. This can be changed later on
+    let createNewLoadout = await createLoadout(username, "Sword Slash");
+    createNewLoadout = await createLoadout(username, "Healing Aura");
+    createNewLoadout = await createLoadout(username, "Defensive Stance");
+    createNewLoadout = await createLoadout(username, "Brace");
+    createNewLoadout = await createLoadout(username, "Slingshot");
+
+    let addInventoryItems = await addUserInventoryItem(username, "Sword Slash", 1, "Card");
+    addInventoryItems = await addUserInventoryItem(username, "Healing Aura", 1, "Card");
+    addInventoryItems = await addUserInventoryItem(username, "Defensive Stance", 1, "Card");
+    addInventoryItems = await addUserInventoryItem(username, "Brace", 1, "Card");
+    addInventoryItems = await addUserInventoryItem(username, "Slingshot", 1, "Card");
+    addInventoryItems = await addUserInventoryItem(username, "Healthy", 1, "Passive");
+
+    const createStats = await addPlayerStats(username);
+    let getPassiveStats = await getPassive("Healthy");
+    getPassiveStats = getPassiveStats[0];
+    let updatePlayerStats = await updatePlayerStatsByName(username, 30 + getPassiveStats.healthBuff - getPassiveStats.healthDebuff, 0 + getPassiveStats.defense, 50, 10);
+
+    return res.status(200).json({ "message": "User successfully created! Login at /login!" });
+  } catch (error) {
+    return res.status(500).json({ "error": "Internal server error" });
   }
-  // Validation guard
-  const checkUser = await getUsername(username);
-  if (checkUser[0]) {
-    return res.status(409).json({ "error": "Username already exists" });
-  }
-  // Create password hash and store user record
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const storeUser = await addUser(username, hashedPassword);
-
-  // Create loadout, add inventory items and playerStats for new user. This can be changed later on
-  let createNewLoadout = await createLoadout(username, "Sword Slash");
-  createNewLoadout = await createLoadout(username, "Healing Aura");
-  createNewLoadout = await createLoadout(username, "Defensive Stance");
-  createNewLoadout = await createLoadout(username, "Brace");
-  createNewLoadout = await createLoadout(username, "Slingshot");
-
-  let addInventoryItems = await addUserInventoryItem(username, "Sword Slash", 1);
-  addInventoryItems = await addUserInventoryItem(username, "Healing Aura", 1);
-  addInventoryItems = await addUserInventoryItem(username, "Defensive Stance", 1);
-  addInventoryItems = await addUserInventoryItem(username, "Brace", 1);
-  addInventoryItems = await addUserInventoryItem(username, "Slingshot", 1);
-  addInventoryItems = await addUserInventoryItem(username, "Healthy", 1);
-
-  const createStats = await addPlayerStats(username);
-
-  return res.status(200).json({ "message": "User successfully created! Login at /login!" });
-  //} catch (error) {
-  //return res.status(500).json({ "error": "Internal server error" });
-  //}
 }

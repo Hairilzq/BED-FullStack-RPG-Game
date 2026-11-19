@@ -134,17 +134,24 @@
         </div>
         {#if playerStats}
           <div class="battle-stats">
-            <div><span>Health</span><strong>{playerStats.health}</strong></div>
             <div>
-              <span>Defense</span><strong>{playerStats.defense}</strong>
+              <img src="/GameImages/iconImages/Health.png" alt="Health" />
+              <strong>{playerStats.health}</strong>
             </div>
             <div>
-              <span>Agility</span><strong>{playerStats.agility}</strong>
+              <img src="/GameImages/iconImages/Defense.png" alt="Defense" />
+              <strong>{playerStats.defense}</strong>
             </div>
             <div>
-              <span>Intelligence</span><strong
-                >{playerStats.intelligence}</strong
-              >
+              <img src="/GameImages/iconImages/Agility.png" alt="Agility" />
+              <strong>{playerStats.agility}</strong>
+            </div>
+            <div>
+              <img
+                src="/GameImages/iconImages/Intelligence.png"
+                alt="Intelligence"
+              />
+              <strong>{playerStats.intelligence}</strong>
             </div>
           </div>
         {:else}
@@ -241,7 +248,7 @@
     color: #17191e;
     font-size: 14px;
     font-weight: 800;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition:
       transform 160ms ease,
       filter 160ms ease;
@@ -253,7 +260,7 @@
   }
 
   .start-button:disabled {
-    cursor: wait;
+    cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto;
     opacity: 0.7;
   }
 
@@ -298,7 +305,7 @@
     font: inherit;
     font-size: 12px;
     font-weight: 700;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .small-action {
@@ -340,15 +347,18 @@
   .battle-stats div {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 10px;
     padding: 10px 12px;
     border-radius: 7px;
     background: #141a23;
   }
 
-  .battle-stats span {
-    color: #9da8b8;
-    font-size: 12px;
+  .battle-stats img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    image-rendering: pixelated;
   }
 
   .battle-stats strong {
@@ -397,7 +407,7 @@
     color: #e6c27f;
     font-size: 23px;
     line-height: 1;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .tip-controls button:hover {

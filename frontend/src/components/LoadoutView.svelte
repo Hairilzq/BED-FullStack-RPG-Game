@@ -436,7 +436,7 @@
     justify-content: center;
     text-align: center;
     font-size: 13px;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition: 0.2s;
     padding: 5px;
     box-sizing: border-box;
@@ -478,7 +478,7 @@
     border-radius: 8px;
     font-size: 16px;
     font-weight: bold;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     width: 100%;
     transition: 0.2s;
   }
@@ -487,7 +487,7 @@
   }
   .submit-btn:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
+    cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto;
   }
 
   .banner {
@@ -532,7 +532,7 @@
     background-color: #2b2b36;
     padding: 12px 8px;
     border-radius: 8px;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     text-align: center;
     border: 2px solid transparent;
     transition: 0.2s;

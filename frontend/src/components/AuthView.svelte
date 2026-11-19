@@ -226,7 +226,7 @@
     border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition: background-color 0.2s;
   }
 
@@ -236,7 +236,7 @@
 
   button:disabled {
     background-color: #555;
-    cursor: not-allowed;
+    cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto;
   }
 
   .error-banner {

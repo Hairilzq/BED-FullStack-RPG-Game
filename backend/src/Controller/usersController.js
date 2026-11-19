@@ -1,4 +1,4 @@
-import { changePassive, clearLoadout, createLoadout, getActiveBattle, getAllCards, getAllEnemies, getAllLevels, getAllPassives, getCard, getCardById, getLoadout, getPassive, updateLoadoutName, updatePlayerStatsName } from "../Model/battlesModel.js";
+import { changePassive, clearLoadout, createLoadout, getActiveBattle, getAllCards, getAllEnemies, getAllLevels, getAllPassives, getCard, getCardById, getLoadout, getPassive, updateLoadoutName, updatePlayerStatsByName, updatePlayerStatsName } from "../Model/battlesModel.js";
 import { addUserInventoryItem, checkUserInventoryItem, getCurrentLevelByUsername, getUserDataByUsername, getUserGoldCount, getUserInventoryItems, getUserLevelSystemData, getUserLoadout, getUserStats, updateUserGoldCount } from "../Model/usersModel.js";
 
 //#region General GET routes
@@ -156,6 +156,13 @@ export const updateLoadout = async (req, res) => {
     if (checkInv_1.length === 0 || checkInv_2.length === 0 || checkInv_3.length === 0 || checkInv_4.length === 0 || checkInv_5.length === 0 || checkInv_6.length === 0) {
       return res.status(404).json({ "error": "1 or more cards (or passive) are not recognised" });
     }
+    // Past check; clear player stats to the original level, then add the new morphed stats
+    let updatePlayerStats = await updatePlayerStatsByName(username, 30, 0, 50, 10); // <-- These are the default base player stats; remember to update when changes apply!
+    let getPassiveStats = await getPassive(clean_passive);
+    getPassiveStats = getPassiveStats[0];
+
+    // Then, update playerStats by the new pasive buffs/debuffs against the default stats
+    updatePlayerStats = await updatePlayerStatsByName(username, 30 + getPassiveStats.healthBuff - getPassiveStats.healthDebuff, 0 + getPassiveStats.defense, 50, 10);
 
     // Clear loadout and update the contents with the new desired loadout. This may change in the future
     let clearCurrentLoadout = await clearLoadout(username);

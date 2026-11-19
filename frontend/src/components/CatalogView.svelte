@@ -8,6 +8,8 @@
   let unownedItemNames = new Set();
   let selectedCard = null;
   let selectedPassive = null;
+  let selectedEnemy = null;
+  let failedEnemyImages = {};
   let isLoading = false;
   let errorMessage = "";
 
@@ -34,6 +36,7 @@
     catalogData = []; // Clear old data while loading
     selectedCard = null;
     selectedPassive = null;
+    selectedEnemy = null;
 
     try {
       const response = await fetch(`http://localhost:3000${endpoints[tab]}`, {
@@ -75,11 +78,16 @@
       catalogData = data;
       if (tab === "Cards") selectedCard = catalogData[0] || null;
       if (tab === "Passives") selectedPassive = catalogData[0] || null;
+      if (tab === "Enemies") selectedEnemy = catalogData[0] || null;
     } catch (err) {
       errorMessage = err.message;
     } finally {
       isLoading = false;
     }
+  }
+
+  function handleEnemyImageError(enemyName) {
+    failedEnemyImages = { ...failedEnemyImages, [enemyName]: true };
   }
 
   // Automatically fetch Cards when the user first opens the catalog
@@ -203,30 +211,114 @@
           {/if}
         </div>
       {:else}
-        <div class="grid">
-          {#each catalogData as item, index (item.id ?? item.passiveName ?? item.enemyName ?? index)}
-            <div
-              class="data-card"
-              animate:flip={{ duration: 300 }}
-            >
-              {#if activeTab === "Passives"}
-              <h2>{item.passiveName}</h2>
-              <p>{item.passiveDesc || item.description || "No description available."}</p>
-              {:else if activeTab === "Enemies"}
-              <h2>{item.enemyName}</h2>
-              <p>{item.enemyDesc || item.description || "No description available."}</p>
-              <div class="traits" aria-label="Enemy traits">
-                {#if item.flying}<span title="Flying">🪽 Flying</span>{/if}
-                {#if item.undead}<span title="Undead">☠ Undead</span>{/if}
-                {#if item.speedy}<span title="Fast">⚡ Fast</span>{/if}
-              </div>
-              <div class="enemy-rewards" aria-label="Enemy rewards">
-                <span>Gold dropped <strong>{item.gold}</strong></span>
-                <span>EXP dropped <strong>{item.experience}</strong></span>
-              </div>
-              {/if}
-            </div>
-          {/each}
+        <div class="cards-catalog-layout">
+          <div class="card-gallery">
+            {#each catalogData as item (item.enemyName)}
+              <button
+                type="button"
+                class="enemy-image-tile"
+                class:selected={selectedEnemy?.enemyName === item.enemyName}
+                aria-pressed={selectedEnemy?.enemyName === item.enemyName}
+                aria-label={`View ${item.enemyName} details`}
+                title={item.enemyName}
+                animate:flip={{ duration: 300 }}
+                on:click={() => (selectedEnemy = item)}
+              >
+                {#if !failedEnemyImages[item.enemyName]}
+                  <img
+                    class="enemy-image"
+                    src={`/GameImages/enemyImages/${encodeURIComponent(item.enemyName)}.jpg`}
+                    alt=""
+                    loading="lazy"
+                    on:error={() => handleEnemyImageError(item.enemyName)}
+                  />
+                {:else}
+                  <span class="enemy-image-placeholder" aria-hidden="true">
+                    NO IMAGE
+                  </span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+          {#if selectedEnemy}
+            {#key selectedEnemy.enemyName}
+              <aside
+                class="card-detail-panel enemy-detail-panel"
+                aria-live="polite"
+              >
+                <p class="eyebrow">ENEMY DETAILS</p>
+                <h2>{selectedEnemy.enemyName}</h2>
+                <p>
+                  {selectedEnemy.enemyDesc ||
+                    selectedEnemy.description ||
+                    "No description available."}
+                </p>
+                {#if selectedEnemy.flying ||
+                  selectedEnemy.undead ||
+                  selectedEnemy.speedy}
+                  <div
+                    class="enemy-traits"
+                    role="group"
+                    aria-label="Enemy traits"
+                  >
+                    {#if selectedEnemy.flying}
+                      <div
+                        class="enemy-trait-icon"
+                        role="img"
+                        aria-label="Flying"
+                        title="Flying"
+                      >
+                        <img
+                          src="/GameImages/statusIconImages/Flying.png"
+                          alt=""
+                        />
+                      </div>
+                    {/if}
+                    {#if selectedEnemy.undead}
+                      <div
+                        class="enemy-trait-icon"
+                        role="img"
+                        aria-label="Undead"
+                        title="Undead"
+                      >
+                        <img
+                          src="/GameImages/statusIconImages/Undead.png"
+                          alt=""
+                        />
+                      </div>
+                    {/if}
+                    {#if selectedEnemy.speedy}
+                      <div
+                        class="enemy-trait-icon"
+                        role="img"
+                        aria-label="Speedy"
+                        title="Speedy"
+                      >
+                        <img
+                          src="/GameImages/statusIconImages/Speedy.png"
+                          alt=""
+                        />
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+                <div
+                  class="enemy-rewards"
+                  role="group"
+                  aria-label="Enemy drops"
+                >
+                  <span>
+                    <img src="/GameImages/iconImages/Gold.png" alt="" />
+                    <strong>{selectedEnemy.gold} Gold</strong>
+                  </span>
+                  <span>
+                    <img src="/GameImages/iconImages/Experience.png" alt="" />
+                    <strong>{selectedEnemy.experience} EXP</strong>
+                  </span>
+                </div>
+              </aside>
+            {/key}
+          {/if}
         </div>
       {/if}
     {/if}
@@ -268,7 +360,7 @@
     border: 2px solid transparent;
     border-radius: 8px;
     font-size: 16px;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition: all 0.2s;
   }
 
@@ -309,7 +401,50 @@
 
   .card-art-tile {
     position: relative;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
+  }
+
+  .enemy-image-tile {
+    display: block;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    box-sizing: border-box;
+    padding: 0;
+    overflow: hidden;
+    border: 2px solid #3b354d;
+    background: #171923;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
+    transition:
+      border-color 0.2s,
+      box-shadow 0.2s,
+      transform 0.2s;
+  }
+
+  .enemy-image-tile:hover,
+  .enemy-image-tile.selected,
+  .enemy-image-tile:focus-visible {
+    border-color: #f4b41b;
+    box-shadow: 0 0 0 2px #f4b41b66;
+    transform: translateY(-2px);
+  }
+
+  .enemy-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+  }
+
+  .enemy-image-placeholder {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    color: #b7bfd2;
+    font-size: 10px;
+    font-weight: 800;
   }
 
   .card-art-tile.locked :global(.card-art) {
@@ -364,45 +499,6 @@
     margin: 0;
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-  }
-
-  .data-card {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    background-color: #2b2b36;
-    padding: 16px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  }
-
-  .card-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-  }
-
-  .data-card h2 {
-    margin: 0;
-    color: #ffffff;
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .data-card p {
-    margin: 0;
-    color: #c2c7d0;
-    font-size: 13px;
-    line-height: 1.55;
-  }
-
   .type-badge {
     flex: 0 0 auto;
     padding: 3px 7px;
@@ -445,37 +541,57 @@
     color: #f5f6f8;
   }
 
-  .traits {
+  .enemy-traits,
+  .enemy-rewards {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
     gap: 6px;
   }
 
-  .traits span {
-    padding: 3px 7px;
-    border-radius: 4px;
-    background: #3a3a48;
-    color: #e0e0e0;
-    font-size: 10px;
+  .enemy-traits {
+    min-height: 28px;
+  }
+
+  .enemy-trait-icon {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    box-sizing: border-box;
+    background: #1e2436;
+    border: 2px solid #5c6f94;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.65);
+  }
+
+  .enemy-trait-icon img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    image-rendering: pixelated;
   }
 
   .enemy-rewards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
     color: #a099b5;
     font-size: 10px;
   }
 
   .enemy-rewards span {
-    padding: 5px 8px;
-    border: 1px solid #3b354d;
-    background: #1e1a29;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
   }
 
   .enemy-rewards strong {
-    margin-left: 4px;
     color: #ffd166;
+  }
+
+  .enemy-rewards img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    image-rendering: pixelated;
   }
 
   .loading,

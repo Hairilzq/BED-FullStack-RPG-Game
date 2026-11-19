@@ -146,12 +146,20 @@
             <span class="badge-label">LVL</span>
             <strong>{progression.userLevel}</strong>
           </div>
-          <div class="profile-detail xp-detail">
-            <span>Experience to next level</span>
+          <div
+            class="profile-detail xp-detail"
+            role="group"
+            aria-label="Experience to next level"
+          >
+            <img
+              class="progression-icon"
+              src="/GameImages/iconImages/Experience.png"
+              alt="Experience"
+            />
             <strong>
               {progression.experienceToNextLevel === null
                 ? "MAX LEVEL"
-                : `${progression.experienceToNextLevel} XP`}
+                : progression.experienceToNextLevel}
             </strong>
           </div>
           {#if progression.experienceNeeded !== null}
@@ -165,13 +173,28 @@
                 )}%`}
               ></span>
             </div>
-            <p class="xp-caption">
-              {progression.userExperience} / {progression.experienceNeeded} XP
+            <p
+              class="xp-caption"
+            >
+              {progression.userExperience} / {progression.experienceNeeded}
+              <img
+                class="progression-icon"
+                src="/GameImages/iconImages/Experience.png"
+                alt="Experience"
+              />
             </p>
           {/if}
-          <div class="profile-detail gold-detail">
-            <span>Gold</span>
-            <strong><span aria-hidden="true">◈</span> {user.gold}</strong>
+          <div
+            class="profile-detail gold-detail"
+            role="group"
+            aria-label={`Gold: ${user.gold}`}
+          >
+            <img
+              class="progression-icon"
+              src="/GameImages/iconImages/Gold.png"
+              alt="Gold"
+            />
+            <strong>{user.gold}</strong>
           </div>
         </section>
 
@@ -423,6 +446,15 @@
   .xp-detail {
     color: #aeb8c6;
     font-size: 11px;
+    justify-content: space-between;
+  }
+
+  .progression-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    object-fit: contain;
+    image-rendering: pixelated;
   }
 
   .xp-detail strong {
@@ -448,6 +480,9 @@
   }
 
   .xp-caption {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     align-self: flex-end;
     margin: 0 0 16px;
     color: #7f8a99;
@@ -565,7 +600,7 @@
     background: none;
     color: #9da8b8;
     font-size: 20px;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .inventory-filters {
@@ -583,7 +618,7 @@
     color: #a099b5 !important;
     font: inherit;
     font-size: 9px;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .inventory-filters button.active {
@@ -653,7 +688,7 @@
     height: auto;
     min-width: 0;
     padding: 0;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .inventory-browser {

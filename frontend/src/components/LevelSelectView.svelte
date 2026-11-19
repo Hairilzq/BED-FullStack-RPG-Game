@@ -235,7 +235,7 @@
     background: linear-gradient(100deg, #1d2530, #181e28);
     color: #d9e0e9;
     text-align: left;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
   }
 
@@ -361,7 +361,7 @@
     font: inherit;
     font-size: 13px;
     font-weight: 800;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
   }
 
   .enter-level:hover:not(:disabled) {
@@ -369,7 +369,7 @@
   }
 
   .enter-level:disabled {
-    cursor: wait;
+    cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto;
     opacity: 0.7;
   }
 

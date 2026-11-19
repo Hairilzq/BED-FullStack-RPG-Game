@@ -54,6 +54,15 @@ body {
   margin: 0;
 }
 
+* {
+  cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
+}
+
+:disabled,
+[aria-disabled="true"] {
+  cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto !important;
+}
+
 h1,
 h2 {
   font-family: var(--heading);
@@ -564,7 +573,7 @@ code {
     color: #18181b !important;
     font-size: 10px !important;
     line-height: 1.7 !important;
-    cursor: pointer;
+    cursor: url("/GameImages/iconImages/Normal_Cursor.png") 0 0, auto;
     transition: background-color 100ms steps(2, end), transform 100ms steps(2, end),
       box-shadow 100ms steps(2, end);
   }
@@ -579,7 +588,7 @@ code {
   }
 
   button:disabled {
-    cursor: not-allowed !important;
+    cursor: url("/GameImages/iconImages/Disabled_cursor.png") 0 0, auto !important;
     opacity: 0.6;
   }
 
@@ -886,7 +895,7 @@ button:active:not(:disabled) {
 .item-card:hover,
 .equipped-item:hover,
 .level-row:hover:not(:disabled),
-.entity-card.enemy:hover:not(.dead),
+.entity-card.enemy:hover:not(.dead):not(.reviving):not(.sequencing),
 .action-card:hover {
   z-index: 1;
   transform: translateY(-6px) !important;
@@ -901,7 +910,7 @@ button:active:not(:disabled) {
 .item-card:active,
 .equipped-item:active,
 .level-row:active:not(:disabled),
-.entity-card.enemy:active:not(.dead),
+.entity-card.enemy:active:not(.dead):not(.reviving),
 .action-card:active {
   transform: translateY(-1px) scale(0.98) !important;
 }
@@ -1178,7 +1187,7 @@ input::placeholder {
 .battle-wrapper .action-card.dragging-card,
 .battle-wrapper .action-card.dragging-card:hover {
   z-index: 1000;
-  cursor: grabbing !important;
+  cursor: url("/GameImages/iconImages/Attack_cursor.png") 0 0, auto !important;
   opacity: 1 !important;
   border: 0 !important;
   background: transparent !important;
